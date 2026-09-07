@@ -5,8 +5,8 @@ import AppShell from "../../layouts/AppShell.jsx";
 // formulário de criação daquele cadastro, não para uma lista). Onde o
 // cadastro real ainda não existe, aponta para o placeholder do módulo.
 const TILES = [
-  { label: "Funcionários", to: "/funcionarios" },
-  { label: "EPIs e CAs", to: "/epis-cas" },
+  { label: "Funcionários", to: "/funcionarios/novo" },
+  { label: "EPIs e CAs", to: "/epis-cas/novo" },
   { label: "Obras", to: "/cadastros/obra" },
   { label: "Fornecedores", to: "/cadastros/fornecedor" },
   { label: "Cargos / Funções", to: "/cadastros/cargo" },
@@ -16,7 +16,7 @@ const TILES = [
   { label: "Categorias de EPI", to: "/cadastros/categoria-epi" },
   { label: "Motivos de movimentação", to: "/cadastros/motivo-movimentacao" },
   { label: "Cadastrar biometria", to: "/cadastros/biometria" },
-  { label: "Matriz EPI x Função", to: "/epis-cas" },
+  { label: "Matriz EPI x Função", to: "/epis-cas/matriz" },
 ];
 
 export default function CadastrosCentral() {

@@ -8,6 +8,9 @@ import ObraDetalhe from "./pages/obras/ObraDetalhe.jsx";
 import FuncionariosLista from "./pages/funcionarios/FuncionariosLista.jsx";
 import NovoFuncionario from "./pages/funcionarios/NovoFuncionario.jsx";
 import FuncionarioEmConstrucao from "./pages/funcionarios/FuncionarioEmConstrucao.jsx";
+import EpisLista from "./pages/epis/EpisLista.jsx";
+import NovoEpi from "./pages/epis/NovoEpi.jsx";
+import MatrizEpiFuncao from "./pages/epis/MatrizEpiFuncao.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 
 export default function App() {
@@ -23,10 +26,12 @@ export default function App() {
         <Route path="/funcionarios" element={<FuncionariosLista />} />
         <Route path="/funcionarios/novo" element={<NovoFuncionario />} />
         <Route path="/funcionarios/:matricula" element={<FuncionarioEmConstrucao title="Ficha do funcionário" />} />
+        <Route path="/epis-cas" element={<EpisLista />} />
+        <Route path="/epis-cas/novo" element={<NovoEpi />} />
+        <Route path="/epis-cas/matriz" element={<MatrizEpiFuncao />} />
         <Route path="/visao-geral" element={<Placeholder />} />
         <Route path="/entregas" element={<Placeholder />} />
         <Route path="/estoque" element={<Placeholder />} />
-        <Route path="/epis-cas" element={<Placeholder />} />
         <Route path="/relatorios" element={<Placeholder />} />
         <Route path="/configuracoes" element={<Placeholder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
