@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import EstoqueVazio from "../../components/EstoqueVazio.jsx";
-import { LOCAIS_ESTOQUE, SALDO_POR_EPI } from "../../data/estoqueConfig.js";
+import { LOCAIS_ESTOQUE, SALDO_POR_LOCAL } from "../../data/estoqueConfig.js";
+
+const LINHAS_ESTOQUE = Object.entries(SALDO_POR_LOCAL).flatMap(([nome, porLocal]) =>
+  Object.entries(porLocal).map(([local, saldo]) => ({ nome, local, saldo }))
+);
 
 // Não existe "05.01 — Estoque — Visão geral" no protótipo (lacuna já registrada em
 // docs/04-ux-ui/auditoria-figma.md). Esta tela preenche essa lacuna usando o conteúdo
@@ -13,9 +17,9 @@ export default function EstoquePorLocal() {
 
   const itens = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return Object.entries(SALDO_POR_EPI).filter(([nome, info]) => {
-      const bateBusca = !termo || nome.toLowerCase().includes(termo);
-      const bateLocal = !localFiltro || info.local === localFiltro;
+    return LINHAS_ESTOQUE.filter((item) => {
+      const bateBusca = !termo || item.nome.toLowerCase().includes(termo);
+      const bateLocal = !localFiltro || item.local === localFiltro;
       return bateBusca && bateLocal;
     });
   }, [busca, localFiltro]);
@@ -35,6 +39,12 @@ export default function EstoquePorLocal() {
             className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
           >
             Ver movimentações
+          </Link>
+          <Link
+            to="/estoque/transferencia"
+            className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
+          >
+            Transferir
           </Link>
           <Link
             to="/estoque/entrada"
@@ -83,11 +93,11 @@ export default function EstoquePorLocal() {
                 </tr>
               </thead>
               <tbody>
-                {itens.map(([nome, info]) => (
-                  <tr key={nome} className="border-b border-epi-border last:border-0">
-                    <td className="px-4 py-3 font-medium text-epi-ink">{nome}</td>
-                    <td className="px-4 py-3 text-epi-muted">{info.local}</td>
-                    <td className="px-4 py-3 text-epi-muted">{info.saldo}</td>
+                {itens.map((item) => (
+                  <tr key={`${item.nome}-${item.local}`} className="border-b border-epi-border last:border-0">
+                    <td className="px-4 py-3 font-medium text-epi-ink">{item.nome}</td>
+                    <td className="px-4 py-3 text-epi-muted">{item.local}</td>
+                    <td className="px-4 py-3 text-epi-muted">{item.saldo}</td>
                   </tr>
                 ))}
               </tbody>

@@ -5,12 +5,16 @@
 
 export const LOCAIS_ESTOQUE = ["Almoxarifado Central", "BR-040 — João Pinheiro", "Usina", "Britagem"];
 
-export const SALDO_POR_EPI = {
-  "Capacete classe B": { saldo: 96, local: "Almoxarifado Central" },
-  "Luva de raspa": { saldo: 40, local: "Almoxarifado Central" },
-  "Óculos incolor": { saldo: 64, local: "Almoxarifado Central" },
-  "Protetor auricular": { saldo: 15, local: "Almoxarifado Central" },
-  "Botina segurança": { saldo: 52, local: "Almoxarifado Central" },
+// Saldo por EPI e por local (necessário para a Transferência calcular origem/destino
+// separadamente). "Luva de raspa" tem saldo nos dois locais do exemplo do Figma
+// (96 na origem, 38 no destino — os números batem com "76"/"58" mostrados após
+// transferir 20 unidades, 05.03 — Transferência).
+export const SALDO_POR_LOCAL = {
+  "Capacete classe B": { "Almoxarifado Central": 96 },
+  "Luva de raspa": { "Almoxarifado Central": 96, Usina: 38 },
+  "Óculos incolor": { "Almoxarifado Central": 64 },
+  "Protetor auricular": { "Almoxarifado Central": 15 },
+  "Botina segurança": { "Almoxarifado Central": 52 },
 };
 
 export const MOVIMENTACOES_KPIS = {

@@ -14,6 +14,7 @@ import MatrizEpiFuncao from "./pages/epis/MatrizEpiFuncao.jsx";
 import EstoquePorLocal from "./pages/estoque/EstoquePorLocal.jsx";
 import EntradaEstoque from "./pages/estoque/EntradaEstoque.jsx";
 import MovimentacoesEstoque from "./pages/estoque/MovimentacoesEstoque.jsx";
+import TransferenciaEstoque from "./pages/estoque/TransferenciaEstoque.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="/estoque" element={<EstoquePorLocal />} />
         <Route path="/estoque/entrada" element={<EntradaEstoque />} />
         <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />
+        <Route path="/estoque/transferencia" element={<TransferenciaEstoque />} />
         <Route path="/relatorios" element={<Placeholder />} />
         <Route path="/configuracoes" element={<Placeholder />} />
         <Route path="*" element={<Navigate to="/" replace />} />

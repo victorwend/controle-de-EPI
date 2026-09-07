@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { EPIS } from "../../data/episConfig.js";
-import { LOCAIS_ESTOQUE, SALDO_POR_EPI } from "../../data/estoqueConfig.js";
+import { LOCAIS_ESTOQUE, SALDO_POR_LOCAL } from "../../data/estoqueConfig.js";
 
 export default function EntradaEstoque() {
   const navigate = useNavigate();
@@ -15,7 +15,7 @@ export default function EntradaEstoque() {
   const [responsavel, setResponsavel] = useState("Victor Wender");
   const [observacao, setObservacao] = useState("");
 
-  const saldoAtual = epi ? SALDO_POR_EPI[epi]?.saldo ?? 0 : null;
+  const saldoAtual = epi && local ? SALDO_POR_LOCAL[epi]?.[local] ?? 0 : null;
   const quantidadeNumero = Number(quantidade) || 0;
   const novoSaldo = saldoAtual !== null ? saldoAtual + quantidadeNumero : null;
 
@@ -152,7 +152,7 @@ export default function EntradaEstoque() {
         <aside className="rounded-xl border border-epi-border bg-white p-6">
           <h3 className="text-sm font-semibold text-epi-ink">Após registrar</h3>
           {saldoAtual === null ? (
-            <p className="mt-3 text-sm text-epi-muted">Selecione um EPI para ver o impacto no saldo.</p>
+            <p className="mt-3 text-sm text-epi-muted">Selecione o EPI e o local para ver o impacto no saldo.</p>
           ) : (
             <div className="mt-3 space-y-1 text-sm text-epi-ink">
               <p>Saldo atual: {saldoAtual}</p>
