@@ -11,6 +11,9 @@ import FuncionarioEmConstrucao from "./pages/funcionarios/FuncionarioEmConstruca
 import EpisLista from "./pages/epis/EpisLista.jsx";
 import NovoEpi from "./pages/epis/NovoEpi.jsx";
 import MatrizEpiFuncao from "./pages/epis/MatrizEpiFuncao.jsx";
+import EstoquePorLocal from "./pages/estoque/EstoquePorLocal.jsx";
+import EntradaEstoque from "./pages/estoque/EntradaEstoque.jsx";
+import MovimentacoesEstoque from "./pages/estoque/MovimentacoesEstoque.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 
 export default function App() {
@@ -31,7 +34,9 @@ export default function App() {
         <Route path="/epis-cas/matriz" element={<MatrizEpiFuncao />} />
         <Route path="/visao-geral" element={<Placeholder />} />
         <Route path="/entregas" element={<Placeholder />} />
-        <Route path="/estoque" element={<Placeholder />} />
+        <Route path="/estoque" element={<EstoquePorLocal />} />
+        <Route path="/estoque/entrada" element={<EntradaEstoque />} />
+        <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />
         <Route path="/relatorios" element={<Placeholder />} />
         <Route path="/configuracoes" element={<Placeholder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
