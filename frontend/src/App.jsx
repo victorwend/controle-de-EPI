@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/Login.jsx";
+import CadastrosCentral from "./pages/cadastros/CadastrosCentral.jsx";
 import CadastroMestre from "./pages/cadastros/CadastroMestre.jsx";
 import ObrasLista from "./pages/obras/ObrasLista.jsx";
 import ObraDetalhe from "./pages/obras/ObraDetalhe.jsx";
@@ -10,6 +11,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/cadastros" element={<CadastrosCentral />} />
         <Route path="/cadastros/:tipo" element={<CadastroMestre />} />
         <Route path="/obras" element={<ObrasLista />} />
         <Route path="/obras/:slug" element={<ObraDetalhe />} />

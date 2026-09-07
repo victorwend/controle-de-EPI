@@ -7,7 +7,7 @@ const NAV_ITEMS = [
   { label: "Estoque", to: "/estoque" },
   { label: "EPIs e CAs", to: "/epis-cas" },
   { label: "Obras", to: "/obras" },
-  { label: "Cadastros", to: "/cadastros/setor" },
+  { label: "Cadastros", to: "/cadastros" },
   { label: "Relatórios", to: "/relatorios" },
   { label: "Configurações", to: "/configuracoes" },
 ];
