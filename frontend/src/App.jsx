@@ -7,7 +7,8 @@ import ObrasLista from "./pages/obras/ObrasLista.jsx";
 import ObraDetalhe from "./pages/obras/ObraDetalhe.jsx";
 import FuncionariosLista from "./pages/funcionarios/FuncionariosLista.jsx";
 import NovoFuncionario from "./pages/funcionarios/NovoFuncionario.jsx";
-import FuncionarioEmConstrucao from "./pages/funcionarios/FuncionarioEmConstrucao.jsx";
+import FichaFuncionario from "./pages/funcionarios/FichaFuncionario.jsx";
+import HistoricoCompleto from "./pages/funcionarios/HistoricoCompleto.jsx";
 import EpisLista from "./pages/epis/EpisLista.jsx";
 import NovoEpi from "./pages/epis/NovoEpi.jsx";
 import MatrizEpiFuncao from "./pages/epis/MatrizEpiFuncao.jsx";
@@ -19,6 +20,9 @@ import EntregasLista from "./pages/entregas/EntregasLista.jsx";
 import NovaEntrega from "./pages/entregas/NovaEntrega.jsx";
 import TrocaDevolucao from "./pages/entregas/TrocaDevolucao.jsx";
 import LoteEntrega from "./pages/entregas/LoteEntrega.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
+import RelatoriosPainel from "./pages/relatorios/RelatoriosPainel.jsx";
+import FichaEpiIndividual from "./pages/relatorios/FichaEpiIndividual.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 
 export default function App() {
@@ -33,11 +37,13 @@ export default function App() {
         <Route path="/obras/:slug" element={<ObraDetalhe />} />
         <Route path="/funcionarios" element={<FuncionariosLista />} />
         <Route path="/funcionarios/novo" element={<NovoFuncionario />} />
-        <Route path="/funcionarios/:matricula" element={<FuncionarioEmConstrucao title="Ficha do funcionário" />} />
+        <Route path="/funcionarios/:matricula" element={<FichaFuncionario />} />
+        <Route path="/funcionarios/:matricula/historico" element={<HistoricoCompleto />} />
+        <Route path="/funcionarios/:matricula/ficha-epi" element={<FichaEpiIndividual />} />
         <Route path="/epis-cas" element={<EpisLista />} />
         <Route path="/epis-cas/novo" element={<NovoEpi />} />
         <Route path="/epis-cas/matriz" element={<MatrizEpiFuncao />} />
-        <Route path="/visao-geral" element={<Placeholder />} />
+        <Route path="/visao-geral" element={<Dashboard />} />
         <Route path="/entregas" element={<EntregasLista />} />
         <Route path="/entregas/nova" element={<NovaEntrega />} />
         <Route path="/entregas/troca-devolucao" element={<TrocaDevolucao />} />
@@ -46,7 +52,7 @@ export default function App() {
         <Route path="/estoque/entrada" element={<EntradaEstoque />} />
         <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />
         <Route path="/estoque/transferencia" element={<TransferenciaEstoque />} />
-        <Route path="/relatorios" element={<Placeholder />} />
+        <Route path="/relatorios" element={<RelatoriosPainel />} />
         <Route path="/configuracoes" element={<Placeholder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
