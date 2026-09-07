@@ -4,6 +4,8 @@ import CadastrosCentral from "./pages/cadastros/CadastrosCentral.jsx";
 import CadastroMestre from "./pages/cadastros/CadastroMestre.jsx";
 import ObrasLista from "./pages/obras/ObrasLista.jsx";
 import ObraDetalhe from "./pages/obras/ObraDetalhe.jsx";
+import FuncionariosLista from "./pages/funcionarios/FuncionariosLista.jsx";
+import FuncionarioEmConstrucao from "./pages/funcionarios/FuncionarioEmConstrucao.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 
 export default function App() {
@@ -15,9 +17,11 @@ export default function App() {
         <Route path="/cadastros/:tipo" element={<CadastroMestre />} />
         <Route path="/obras" element={<ObrasLista />} />
         <Route path="/obras/:slug" element={<ObraDetalhe />} />
+        <Route path="/funcionarios" element={<FuncionariosLista />} />
+        <Route path="/funcionarios/novo" element={<FuncionarioEmConstrucao title="Novo funcionário" />} />
+        <Route path="/funcionarios/:matricula" element={<FuncionarioEmConstrucao title="Ficha do funcionário" />} />
         <Route path="/visao-geral" element={<Placeholder />} />
         <Route path="/entregas" element={<Placeholder />} />
-        <Route path="/funcionarios" element={<Placeholder />} />
         <Route path="/estoque" element={<Placeholder />} />
         <Route path="/epis-cas" element={<Placeholder />} />
         <Route path="/relatorios" element={<Placeholder />} />
