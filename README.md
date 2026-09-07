@@ -49,6 +49,10 @@ Organizar o desenvolvimento de um sistema capaz de apoiar, futuramente:
 - [ ] Definir a arquitetura
 - [ ] Iniciar o desenvolvimento
 
+## Changelog
+
+- **06/09/2026 — Inspeção visual das 63 telas e plano de produção.** A auditoria anterior do Figma era estrutural (contagem de telas/reações via API); esta sessão abriu cada uma das 63 telas para ler conteúdo real (campos, textos, botões) e documentar correlação de fluxo entre elas. Resultado em `docs/05-arquitetura/plano-de-producao-telas.md`: inventário tela a tela, decisão de arquivar a tela duplicada `15 — Devolução ou troca de EPI` em favor de `03.08 — Entregas — Troca e devolução` (mais completa e já integrada à navegação), identificação de que os módulos 10 (Configurações) e 11 (Estados) e o sub-fluxo de biometria em Entregas são componentes reutilizáveis parametrizados — não telas separadas —, e ordem de construção tela a tela dentro de cada sprint já existente em `gestao/sprints/`.
+
 ## Como colaborar
 
 O projeto também poderá ser usado por estudantes iniciantes para praticar um fluxo profissional de trabalho. Cada melhoria deverá ser registrada como uma tarefa antes do desenvolvimento.
