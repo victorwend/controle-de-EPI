@@ -27,7 +27,9 @@ export default function BiometriaCadastro() {
   }, [busca]);
 
   function voltarAoInicio() {
-    navigate(origem === "novo-funcionario" ? "/funcionarios/novo" : "/cadastros");
+    if (origem === "novo-funcionario") navigate("/funcionarios/novo");
+    else if (origem === "entrega") navigate("/entregas/nova");
+    else navigate("/cadastros");
   }
 
   return (
@@ -213,7 +215,11 @@ export default function BiometriaCadastro() {
                 onClick={voltarAoInicio}
                 className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink"
               >
-                {origem === "novo-funcionario" ? "Voltar ao cadastro do funcionário" : "Voltar aos cadastros"}
+                {origem === "novo-funcionario"
+                  ? "Voltar ao cadastro do funcionário"
+                  : origem === "entrega"
+                    ? "Voltar à entrega"
+                    : "Voltar aos cadastros"}
               </button>
               <button
                 type="button"

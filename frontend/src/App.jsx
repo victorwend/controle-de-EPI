@@ -15,6 +15,8 @@ import EstoquePorLocal from "./pages/estoque/EstoquePorLocal.jsx";
 import EntradaEstoque from "./pages/estoque/EntradaEstoque.jsx";
 import MovimentacoesEstoque from "./pages/estoque/MovimentacoesEstoque.jsx";
 import TransferenciaEstoque from "./pages/estoque/TransferenciaEstoque.jsx";
+import EntregasLista from "./pages/entregas/EntregasLista.jsx";
+import NovaEntrega from "./pages/entregas/NovaEntrega.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 
 export default function App() {
@@ -34,7 +36,10 @@ export default function App() {
         <Route path="/epis-cas/novo" element={<NovoEpi />} />
         <Route path="/epis-cas/matriz" element={<MatrizEpiFuncao />} />
         <Route path="/visao-geral" element={<Placeholder />} />
-        <Route path="/entregas" element={<Placeholder />} />
+        <Route path="/entregas" element={<EntregasLista />} />
+        <Route path="/entregas/nova" element={<NovaEntrega />} />
+        <Route path="/entregas/troca-devolucao" element={<Placeholder />} />
+        <Route path="/entregas/lote" element={<Placeholder />} />
         <Route path="/estoque" element={<EstoquePorLocal />} />
         <Route path="/estoque/entrada" element={<EntradaEstoque />} />
         <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />

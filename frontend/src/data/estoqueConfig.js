@@ -15,6 +15,13 @@ export const SALDO_POR_LOCAL = {
   "Óculos incolor": { "Almoxarifado Central": 64 },
   "Protetor auricular": { "Almoxarifado Central": 15 },
   "Botina segurança": { "Almoxarifado Central": 52 },
+  // "Colete refletivo" só aparece na Matriz EPI x Função do Servente (06.03) — o Figma
+  // nunca o cadastrou na lista de EPIs (06.01) nem em nenhum frame de estoque (05.x).
+  // Gap do próprio protótipo entre frames de sprints diferentes, achado na Sprint 8:
+  // sem um saldo aqui, a sugestão automática da matriz (03.02) bloqueava a entrega como
+  // "saldo insuficiente" para um item que nunca chegou a ser rastreado em estoque.
+  // Saldo abaixo é um valor plausível, não um dado literal do protótipo.
+  "Colete refletivo": { "Almoxarifado Central": 40 },
 };
 
 export const MOVIMENTACOES_KPIS = {
