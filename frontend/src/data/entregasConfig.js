@@ -8,3 +8,17 @@ export const ENTREGAS = [
 ];
 
 export const TOTAL_ENTREGAS_MES = 347;
+
+// EPIs em posse por funcionário, para a tela de Troca e devolução (03.08).
+// O Figma mostra a tabela só com dado literal de um colaborador de exemplo
+// ("Colaborador ativo • Obra vinculada", sem nome real) — aqui associada a
+// João Carlos da Silva (mesmos 3 itens/CAs do frame). Para os demais
+// funcionários do mock ainda não há posse detalhada por item; honesto mostrar
+// vazio a inventar dado que o protótipo nunca desenhou.
+export const POSSE_POR_FUNCIONARIO = {
+  "00487": [
+    { epi: "Capacete classe B", ca: "12345" },
+    { epi: "Luva de raspa", ca: "54321" },
+    { epi: "Óculos incolor", ca: "99887" },
+  ],
+};

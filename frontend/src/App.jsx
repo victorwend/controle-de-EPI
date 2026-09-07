@@ -17,6 +17,8 @@ import MovimentacoesEstoque from "./pages/estoque/MovimentacoesEstoque.jsx";
 import TransferenciaEstoque from "./pages/estoque/TransferenciaEstoque.jsx";
 import EntregasLista from "./pages/entregas/EntregasLista.jsx";
 import NovaEntrega from "./pages/entregas/NovaEntrega.jsx";
+import TrocaDevolucao from "./pages/entregas/TrocaDevolucao.jsx";
+import LoteEntrega from "./pages/entregas/LoteEntrega.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
 
 export default function App() {
@@ -38,8 +40,8 @@ export default function App() {
         <Route path="/visao-geral" element={<Placeholder />} />
         <Route path="/entregas" element={<EntregasLista />} />
         <Route path="/entregas/nova" element={<NovaEntrega />} />
-        <Route path="/entregas/troca-devolucao" element={<Placeholder />} />
-        <Route path="/entregas/lote" element={<Placeholder />} />
+        <Route path="/entregas/troca-devolucao" element={<TrocaDevolucao />} />
+        <Route path="/entregas/lote" element={<LoteEntrega />} />
         <Route path="/estoque" element={<EstoquePorLocal />} />
         <Route path="/estoque/entrada" element={<EntradaEstoque />} />
         <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />
