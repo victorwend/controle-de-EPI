@@ -17,6 +17,9 @@ export default {
           border: "#D9E0DB",
           mist: "#D1E3D9",
           tint: "#BFD9C9",
+          // Tokens extraídos das telas internas (09.05 — Cadastros — Setor): sidebar do app
+          shell: "#093826",
+          shellActive: "#17523B",
         },
       },
     },

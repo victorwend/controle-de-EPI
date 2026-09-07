@@ -1,12 +1,15 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const navigate = useNavigate();
 
   function handleSubmit(event) {
     event.preventDefault();
     // TODO: integrar com o backend de autenticação (Sprint 3 — Autenticação e segurança).
+    navigate("/visao-geral");
   }
 
   return (
