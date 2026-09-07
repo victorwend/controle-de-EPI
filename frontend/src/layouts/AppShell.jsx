@@ -47,7 +47,7 @@ export default function AppShell({ title, subtitle, activeSection, children }) {
         <header className="flex items-center justify-between border-b border-epi-border bg-white px-10 py-6">
           <div>
             <h1 className="text-xl font-semibold text-epi-ink">{title}</h1>
-            <p className="mt-1 text-sm text-epi-muted">{subtitle}</p>
+            {subtitle && <p className="mt-1 text-sm text-epi-muted">{subtitle}</p>}
           </div>
           <p className="text-sm text-epi-muted">Victor • Administrador</p>
         </header>
