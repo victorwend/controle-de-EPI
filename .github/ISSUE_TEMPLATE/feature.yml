@@ -1,0 +1,55 @@
+name: Funcionalidade
+description: Propor uma funcionalidade vinculada ao backlog
+title: "[FEATURE] "
+labels: ["feature"]
+body:
+  - type: input
+    id: notion
+    attributes:
+      label: Tarefa do Notion
+      description: Informe o link ou código da tarefa.
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: Qual necessidade real será resolvida?
+    validations:
+      required: true
+  - type: textarea
+    id: rules
+    attributes:
+      label: Requisitos e regras
+      description: Liste RF, RN, caso de uso ou user story relacionados.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite
+      description: Escreva resultados objetivos e verificáveis.
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Camada
+      options:
+        - Frontend
+        - Backend/API
+        - Banco de Dados
+        - Segurança
+        - Testes
+        - DevOps/Infra
+        - Integração
+        - Arquitetura
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Segurança e privacidade
+      description: Informe permissões, dados sensíveis e cenários de abuso.
+    validations:
+      required: true
