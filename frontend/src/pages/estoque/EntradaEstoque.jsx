@@ -1,27 +1,87 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
-import { EPIS } from "../../data/episConfig.js";
-import { LOCAIS_ESTOQUE, SALDO_POR_LOCAL } from "../../data/estoqueConfig.js";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function EntradaEstoque() {
   const navigate = useNavigate();
-  const [epi, setEpi] = useState("");
+  const [epis, setEpis] = useState([]);
+  const [locais, setLocais] = useState([]);
+  const [epiId, setEpiId] = useState("");
   const [quantidade, setQuantidade] = useState("");
-  const [local, setLocal] = useState("");
+  const [localId, setLocalId] = useState("");
   const [documento, setDocumento] = useState("");
   const [fornecedor, setFornecedor] = useState("");
-  const [dataEntrada, setDataEntrada] = useState("");
-  const [responsavel, setResponsavel] = useState("Victor Wender");
   const [observacao, setObservacao] = useState("");
+  const [saldoAtual, setSaldoAtual] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
 
-  const saldoAtual = epi && local ? SALDO_POR_LOCAL[epi]?.[local] ?? 0 : null;
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([
+      supabase.from("epis").select("id, nome").order("nome"),
+      supabase.from("locais_estoque").select("id, nome").eq("status", "ativo").order("nome"),
+    ]).then(([{ data: episData }, { data: locaisData }]) => {
+      if (!ativo) return;
+      setEpis(episData ?? []);
+      setLocais(locaisData ?? []);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!epiId || !localId) {
+      setSaldoAtual(null);
+      return;
+    }
+    let ativo = true;
+    supabase
+      .from("saldo_estoque")
+      .select("saldo")
+      .eq("epi_id", epiId)
+      .eq("local_id", localId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (ativo) setSaldoAtual(data?.saldo ?? 0);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [epiId, localId]);
+
   const quantidadeNumero = Number(quantidade) || 0;
   const novoSaldo = saldoAtual !== null ? saldoAtual + quantidadeNumero : null;
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    // TODO: persistir no backend quando a Sprint 7 definir a API de movimentações de estoque.
+
+    if (!epiId || !localId || quantidadeNumero <= 0) {
+      setErro("Selecione o EPI, o local e uma quantidade maior que zero.");
+      return;
+    }
+
+    setErro("");
+    setLoading(true);
+
+    const { error } = await supabase.rpc("registrar_entrada_estoque", {
+      p_epi_id: epiId,
+      p_local_id: localId,
+      p_quantidade: quantidadeNumero,
+      p_documento: documento.trim() || null,
+      p_fornecedor: fornecedor.trim() || null,
+      p_observacao: observacao.trim() || null,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErro(error.message || "Não foi possível registrar a entrada.");
+      return;
+    }
+
     navigate("/estoque");
   }
 
@@ -39,15 +99,15 @@ export default function EntradaEstoque() {
               EPI *
               <select
                 required
-                value={epi}
-                onChange={(event) => setEpi(event.target.value)}
+                value={epiId}
+                onChange={(event) => setEpiId(event.target.value)}
                 className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
               >
                 <option value="" disabled>
                   Selecione o EPI
                 </option>
-                {EPIS.map((item) => (
-                  <option key={item.ca} value={item.nome}>
+                {epis.map((item) => (
+                  <option key={item.id} value={item.id}>
                     {item.nome}
                   </option>
                 ))}
@@ -71,19 +131,32 @@ export default function EntradaEstoque() {
               Local de estoque *
               <select
                 required
-                value={local}
-                onChange={(event) => setLocal(event.target.value)}
+                value={localId}
+                onChange={(event) => setLocalId(event.target.value)}
                 className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
               >
                 <option value="" disabled>
                   Selecione o local
                 </option>
-                {LOCAIS_ESTOQUE.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
+                {locais.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.nome}
                   </option>
                 ))}
               </select>
+              {locais.length === 0 && (
+                <span className="mt-1 block text-xs text-epi-muted">
+                  Nenhum local cadastrado ainda —{" "}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/estoque/locais/novo")}
+                    className="font-semibold text-epi-brand"
+                  >
+                    cadastrar um local
+                  </button>
+                  .
+                </span>
+              )}
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">
@@ -108,26 +181,6 @@ export default function EntradaEstoque() {
               />
             </label>
 
-            <label className="block text-[13px] font-medium text-epi-ink">
-              Data de entrada
-              <input
-                type="date"
-                value={dataEntrada}
-                onChange={(event) => setDataEntrada(event.target.value)}
-                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-              />
-            </label>
-
-            <label className="block text-[13px] font-medium text-epi-ink">
-              Responsável
-              <input
-                type="text"
-                value={responsavel}
-                onChange={(event) => setResponsavel(event.target.value)}
-                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-              />
-            </label>
-
             <label className="block text-[13px] font-medium text-epi-ink md:col-span-2">
               Observação
               <textarea
@@ -139,12 +192,17 @@ export default function EntradaEstoque() {
             </label>
           </div>
 
+          {erro && (
+            <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>
+          )}
+
           <div className="mt-8 flex items-center justify-end border-t border-epi-border pt-6">
             <button
               type="submit"
-              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+              disabled={loading}
+              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
             >
-              Registrar entrada
+              {loading ? "Registrando..." : "Registrar entrada"}
             </button>
           </div>
         </form>

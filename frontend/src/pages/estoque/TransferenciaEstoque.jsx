@@ -1,31 +1,109 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import SuccessModal from "../../components/SuccessModal.jsx";
-import { EPIS } from "../../data/episConfig.js";
-import { LOCAIS_ESTOQUE, SALDO_POR_LOCAL } from "../../data/estoqueConfig.js";
+import { supabase } from "../../lib/supabaseClient";
 
 export default function TransferenciaEstoque() {
   const navigate = useNavigate();
-  const [epi, setEpi] = useState("");
+  const [epis, setEpis] = useState([]);
+  const [locais, setLocais] = useState([]);
+  const [epiId, setEpiId] = useState("");
   const [quantidade, setQuantidade] = useState("");
-  const [origem, setOrigem] = useState("");
-  const [destino, setDestino] = useState("");
-  const [responsavelSaida, setResponsavelSaida] = useState("Victor Wender");
-  const [responsavelRecebimento, setResponsavelRecebimento] = useState("");
-  const [dataTransferencia, setDataTransferencia] = useState("");
+  const [origemId, setOrigemId] = useState("");
+  const [destinoId, setDestinoId] = useState("");
   const [documento, setDocumento] = useState("");
+  const [saldoOrigem, setSaldoOrigem] = useState(null);
+  const [saldoDestino, setSaldoDestino] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
   const [concluida, setConcluida] = useState(false);
 
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([
+      supabase.from("epis").select("id, nome").order("nome"),
+      supabase.from("locais_estoque").select("id, nome").eq("status", "ativo").order("nome"),
+    ]).then(([{ data: episData }, { data: locaisData }]) => {
+      if (!ativo) return;
+      setEpis(episData ?? []);
+      setLocais(locaisData ?? []);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!epiId || !origemId) {
+      setSaldoOrigem(null);
+      return;
+    }
+    let ativo = true;
+    supabase
+      .from("saldo_estoque")
+      .select("saldo")
+      .eq("epi_id", epiId)
+      .eq("local_id", origemId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (ativo) setSaldoOrigem(data?.saldo ?? 0);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [epiId, origemId]);
+
+  useEffect(() => {
+    if (!epiId || !destinoId) {
+      setSaldoDestino(null);
+      return;
+    }
+    let ativo = true;
+    supabase
+      .from("saldo_estoque")
+      .select("saldo")
+      .eq("epi_id", epiId)
+      .eq("local_id", destinoId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (ativo) setSaldoDestino(data?.saldo ?? 0);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [epiId, destinoId]);
+
   const quantidadeNumero = Number(quantidade) || 0;
-  const saldoOrigem = epi && origem ? SALDO_POR_LOCAL[epi]?.[origem] ?? 0 : null;
-  const saldoDestino = epi && destino ? SALDO_POR_LOCAL[epi]?.[destino] ?? 0 : null;
   const saldoOrigemApos = saldoOrigem !== null ? saldoOrigem - quantidadeNumero : null;
   const saldoDestinoApos = saldoDestino !== null ? saldoDestino + quantidadeNumero : null;
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    // TODO: persistir no backend quando a Sprint 7 definir a API de movimentações de estoque.
+
+    if (!epiId || !origemId || !destinoId || quantidadeNumero <= 0) {
+      setErro("Selecione o EPI, origem, destino e uma quantidade maior que zero.");
+      return;
+    }
+
+    setErro("");
+    setLoading(true);
+
+    const { error } = await supabase.rpc("transferir_estoque", {
+      p_epi_id: epiId,
+      p_local_origem_id: origemId,
+      p_local_destino_id: destinoId,
+      p_quantidade: quantidadeNumero,
+      p_documento: documento.trim() || null,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErro(error.message || "Não foi possível registrar a transferência.");
+      return;
+    }
+
     setConcluida(true);
   }
 
@@ -39,15 +117,15 @@ export default function TransferenciaEstoque() {
             EPI
             <select
               required
-              value={epi}
-              onChange={(event) => setEpi(event.target.value)}
+              value={epiId}
+              onChange={(event) => setEpiId(event.target.value)}
               className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
             >
               <option value="" disabled>
                 Selecione o EPI
               </option>
-              {EPIS.map((item) => (
-                <option key={item.ca} value={item.nome}>
+              {epis.map((item) => (
+                <option key={item.id} value={item.id}>
                   {item.nome}
                 </option>
               ))}
@@ -71,16 +149,16 @@ export default function TransferenciaEstoque() {
             Origem
             <select
               required
-              value={origem}
-              onChange={(event) => setOrigem(event.target.value)}
+              value={origemId}
+              onChange={(event) => setOrigemId(event.target.value)}
               className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
             >
               <option value="" disabled>
                 Selecione a origem
               </option>
-              {LOCAIS_ESTOQUE.map((item) => (
-                <option key={item} value={item} disabled={item === destino}>
-                  {item}
+              {locais.map((item) => (
+                <option key={item.id} value={item.id} disabled={item.id === destinoId}>
+                  {item.nome}
                 </option>
               ))}
             </select>
@@ -90,52 +168,19 @@ export default function TransferenciaEstoque() {
             Destino
             <select
               required
-              value={destino}
-              onChange={(event) => setDestino(event.target.value)}
+              value={destinoId}
+              onChange={(event) => setDestinoId(event.target.value)}
               className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
             >
               <option value="" disabled>
                 Selecione o destino
               </option>
-              {LOCAIS_ESTOQUE.map((item) => (
-                <option key={item} value={item} disabled={item === origem}>
-                  {item}
+              {locais.map((item) => (
+                <option key={item.id} value={item.id} disabled={item.id === origemId}>
+                  {item.nome}
                 </option>
               ))}
             </select>
-          </label>
-
-          <label className="block text-[13px] font-medium text-epi-ink">
-            Responsável pela saída
-            <input
-              type="text"
-              value={responsavelSaida}
-              onChange={(event) => setResponsavelSaida(event.target.value)}
-              className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-            />
-          </label>
-
-          <label className="block text-[13px] font-medium text-epi-ink">
-            Responsável pelo recebimento
-            <select
-              value={responsavelRecebimento}
-              onChange={(event) => setResponsavelRecebimento(event.target.value)}
-              className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-            >
-              <option value="" disabled>
-                Selecione o responsável
-              </option>
-            </select>
-          </label>
-
-          <label className="block text-[13px] font-medium text-epi-ink">
-            Data da transferência
-            <input
-              type="date"
-              value={dataTransferencia}
-              onChange={(event) => setDataTransferencia(event.target.value)}
-              className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-            />
           </label>
 
           <label className="block text-[13px] font-medium text-epi-ink">
@@ -156,6 +201,10 @@ export default function TransferenciaEstoque() {
           </p>
         )}
 
+        {erro && (
+          <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>
+        )}
+
         <div className="mt-8 flex items-center justify-between border-t border-epi-border pt-6">
           <button
             type="button"
@@ -166,9 +215,10 @@ export default function TransferenciaEstoque() {
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            disabled={loading}
+            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
           >
-            Confirmar transferência
+            {loading ? "Confirmando..." : "Confirmar transferência"}
           </button>
         </div>
       </form>

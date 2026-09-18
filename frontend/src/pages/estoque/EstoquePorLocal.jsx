@@ -1,12 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import EstoqueVazio from "../../components/EstoqueVazio.jsx";
-import { LOCAIS_ESTOQUE, SALDO_POR_LOCAL } from "../../data/estoqueConfig.js";
-
-const LINHAS_ESTOQUE = Object.entries(SALDO_POR_LOCAL).flatMap(([nome, porLocal]) =>
-  Object.entries(porLocal).map(([local, saldo]) => ({ nome, local, saldo }))
-);
+import { supabase } from "../../lib/supabaseClient";
 
 // Não existe "05.01 — Estoque — Visão geral" no protótipo (lacuna já registrada em
 // docs/04-ux-ui/auditoria-figma.md). Esta tela preenche essa lacuna usando o conteúdo
@@ -14,15 +10,37 @@ const LINHAS_ESTOQUE = Object.entries(SALDO_POR_LOCAL).flatMap(([nome, porLocal]
 export default function EstoquePorLocal() {
   const [busca, setBusca] = useState("");
   const [localFiltro, setLocalFiltro] = useState("");
+  const [itens, setItens] = useState([]);
+  const [locais, setLocais] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const itens = useMemo(() => {
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([
+      supabase
+        .from("saldo_estoque")
+        .select("id, saldo, epis(id, nome), locais_estoque(id, nome)")
+        .order("saldo", { ascending: false }),
+      supabase.from("locais_estoque").select("id, nome").order("nome"),
+    ]).then(([{ data: saldoData }, { data: locaisData }]) => {
+      if (!ativo) return;
+      setItens(saldoData ?? []);
+      setLocais(locaisData ?? []);
+      setLoading(false);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const itensFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return LINHAS_ESTOQUE.filter((item) => {
-      const bateBusca = !termo || item.nome.toLowerCase().includes(termo);
-      const bateLocal = !localFiltro || item.local === localFiltro;
+    return itens.filter((item) => {
+      const bateBusca = !termo || (item.epis?.nome ?? "").toLowerCase().includes(termo);
+      const bateLocal = !localFiltro || item.locais_estoque?.id === localFiltro;
       return bateBusca && bateLocal;
     });
-  }, [busca, localFiltro]);
+  }, [busca, localFiltro, itens]);
 
   function limparFiltros() {
     setBusca("");
@@ -32,7 +50,12 @@ export default function EstoquePorLocal() {
   return (
     <AppShell title="Estoque" subtitle="Consulte o saldo disponível por EPI e por local." activeSection="Estoque">
       <div className="mb-6 flex items-center justify-between">
-        <div />
+        <Link
+          to="/estoque/locais/novo"
+          className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
+        >
+          + Novo local
+        </Link>
         <div className="flex gap-3">
           <Link
             to="/estoque/movimentacoes"
@@ -72,15 +95,17 @@ export default function EstoquePorLocal() {
             className="h-11 w-56 rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
           >
             <option value="">Todos os locais</option>
-            {LOCAIS_ESTOQUE.map((local) => (
-              <option key={local} value={local}>
-                {local}
+            {locais.map((local) => (
+              <option key={local.id} value={local.id}>
+                {local.nome}
               </option>
             ))}
           </select>
         </div>
 
-        {itens.length === 0 ? (
+        {loading ? (
+          <p className="py-6 text-center text-sm text-epi-muted">Carregando...</p>
+        ) : itensFiltrados.length === 0 ? (
           <EstoqueVazio onLimparFiltros={limparFiltros} />
         ) : (
           <div className="overflow-hidden rounded-lg border border-epi-border">
@@ -93,10 +118,10 @@ export default function EstoquePorLocal() {
                 </tr>
               </thead>
               <tbody>
-                {itens.map((item) => (
-                  <tr key={`${item.nome}-${item.local}`} className="border-b border-epi-border last:border-0">
-                    <td className="px-4 py-3 font-medium text-epi-ink">{item.nome}</td>
-                    <td className="px-4 py-3 text-epi-muted">{item.local}</td>
+                {itensFiltrados.map((item) => (
+                  <tr key={item.id} className="border-b border-epi-border last:border-0">
+                    <td className="px-4 py-3 font-medium text-epi-ink">{item.epis?.nome ?? "—"}</td>
+                    <td className="px-4 py-3 text-epi-muted">{item.locais_estoque?.nome ?? "—"}</td>
                     <td className="px-4 py-3 text-epi-muted">{item.saldo}</td>
                   </tr>
                 ))}

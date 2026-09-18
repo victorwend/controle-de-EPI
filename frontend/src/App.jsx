@@ -20,6 +20,7 @@ import EstoquePorLocal from "./pages/estoque/EstoquePorLocal.jsx";
 import EntradaEstoque from "./pages/estoque/EntradaEstoque.jsx";
 import MovimentacoesEstoque from "./pages/estoque/MovimentacoesEstoque.jsx";
 import TransferenciaEstoque from "./pages/estoque/TransferenciaEstoque.jsx";
+import NovoLocalEstoque from "./pages/estoque/NovoLocalEstoque.jsx";
 import EntregasLista from "./pages/entregas/EntregasLista.jsx";
 import NovaEntrega from "./pages/entregas/NovaEntrega.jsx";
 import TrocaDevolucao from "./pages/entregas/TrocaDevolucao.jsx";
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/estoque/entrada" element={<EntradaEstoque />} />
             <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />
             <Route path="/estoque/transferencia" element={<TransferenciaEstoque />} />
+            <Route path="/estoque/locais/novo" element={<NovoLocalEstoque />} />
             <Route path="/relatorios" element={<RelatoriosPainel />} />
             <Route path="/configuracoes" element={<Placeholder />} />
           </Route>

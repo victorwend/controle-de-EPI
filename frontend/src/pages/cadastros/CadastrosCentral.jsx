@@ -12,7 +12,7 @@ const TILES = [
   { label: "Cargos / Funções", to: "/cadastros/cargo" },
   { label: "Setores / Centros de custo", to: "/cadastros/setor" },
   { label: "Usuários", to: "/cadastros/usuario" },
-  { label: "Locais de estoque", to: "/cadastros/local-estoque" },
+  { label: "Locais de estoque", to: "/estoque/locais/novo" },
   { label: "Categorias de EPI", to: "/cadastros/categoria-epi" },
   { label: "Motivos de movimentação", to: "/cadastros/motivo-movimentacao" },
   { label: "Cadastrar biometria", to: "/cadastros/biometria" },

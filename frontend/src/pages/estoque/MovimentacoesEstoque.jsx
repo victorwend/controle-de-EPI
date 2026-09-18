@@ -1,25 +1,69 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import EstoqueVazio from "../../components/EstoqueVazio.jsx";
-import { MOVIMENTACOES, MOVIMENTACOES_KPIS } from "../../data/estoqueConfig.js";
+import { supabase } from "../../lib/supabaseClient";
+
+function formatarData(dataIso) {
+  return new Date(dataIso).toLocaleDateString("pt-BR");
+}
+
+function origemDestino(mov) {
+  if (mov.tipo === "entrada") {
+    return `${mov.fornecedor || "Fornecedor"} → ${mov.destino?.nome ?? "—"}`;
+  }
+  return `${mov.origem?.nome ?? "—"} → ${mov.destino?.nome ?? "—"}`;
+}
 
 export default function MovimentacoesEstoque() {
   const [busca, setBusca] = useState("");
   const [tipoFiltro, setTipoFiltro] = useState("");
+  const [movimentacoes, setMovimentacoes] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let ativo = true;
+    supabase
+      .from("movimentacoes_estoque")
+      .select(
+        "id, tipo, quantidade, documento, fornecedor, created_at, epis(nome, ca), origem:local_origem_id(nome), destino:local_destino_id(nome), usuarios(nome_completo)"
+      )
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (!ativo) return;
+        setMovimentacoes(data ?? []);
+        setLoading(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const kpis = useMemo(() => {
+    const hoje = new Date();
+    const doMes = movimentacoes.filter((mov) => {
+      const data = new Date(mov.created_at);
+      return data.getMonth() === hoje.getMonth() && data.getFullYear() === hoje.getFullYear();
+    });
+    return {
+      noMes: doMes.length,
+      entradas: doMes.filter((mov) => mov.tipo === "entrada").length,
+      transferencias: doMes.filter((mov) => mov.tipo === "transferencia").length,
+    };
+  }, [movimentacoes]);
 
   const movimentacoesFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return MOVIMENTACOES.filter((mov) => {
+    return movimentacoes.filter((mov) => {
       const bateBusca =
         !termo ||
-        mov.epi.toLowerCase().includes(termo) ||
-        mov.documento.toLowerCase().includes(termo) ||
-        mov.responsavel.toLowerCase().includes(termo);
+        (mov.epis?.nome ?? "").toLowerCase().includes(termo) ||
+        (mov.documento ?? "").toLowerCase().includes(termo) ||
+        (mov.usuarios?.nome_completo ?? "").toLowerCase().includes(termo);
       const bateTipo = !tipoFiltro || mov.tipo === tipoFiltro;
       return bateBusca && bateTipo;
     });
-  }, [busca, tipoFiltro]);
+  }, [busca, tipoFiltro, movimentacoes]);
 
   function limparFiltros() {
     setBusca("");
@@ -32,7 +76,7 @@ export default function MovimentacoesEstoque() {
         <div>
           <h2 className="text-xl font-semibold text-epi-ink">Movimentações de estoque</h2>
           <p className="mt-1 text-sm text-epi-muted">
-            Consulte todas as entradas, saídas, entregas, devoluções, ajustes e transferências.
+            Consulte todas as entradas e transferências registradas.
           </p>
         </div>
         <Link
@@ -44,10 +88,10 @@ export default function MovimentacoesEstoque() {
       </div>
 
       <div className="mb-6 grid max-w-[1060px] grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Movimentações no mês" value={MOVIMENTACOES_KPIS.noMes} />
-        <KpiCard label="Entradas" value={MOVIMENTACOES_KPIS.entradas} />
-        <KpiCard label="Saídas" value={MOVIMENTACOES_KPIS.saidas} />
-        <KpiCard label="Ajustes" value={MOVIMENTACOES_KPIS.ajustes} />
+        <KpiCard label="Movimentações no mês" value={kpis.noMes} />
+        <KpiCard label="Entradas" value={kpis.entradas} />
+        <KpiCard label="Transferências" value={kpis.transferencias} />
+        <KpiCard label="Ajustes" value={0} nota="Ajuste manual ainda não implementado." />
       </div>
 
       <div className="mb-4 flex max-w-[1060px] gap-3">
@@ -64,13 +108,15 @@ export default function MovimentacoesEstoque() {
           className="h-11 w-44 rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
         >
           <option value="">Todos os tipos</option>
-          <option value="Entrada">Entrada</option>
-          <option value="Saída">Saída</option>
+          <option value="entrada">Entrada</option>
+          <option value="transferencia">Transferência</option>
         </select>
       </div>
 
       <div className="max-w-[1060px]">
-        {movimentacoesFiltradas.length === 0 ? (
+        {loading ? (
+          <p className="py-6 text-center text-sm text-epi-muted">Carregando...</p>
+        ) : movimentacoesFiltradas.length === 0 ? (
           <EstoqueVazio onLimparFiltros={limparFiltros} />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-epi-border bg-white">
@@ -87,17 +133,19 @@ export default function MovimentacoesEstoque() {
                 </tr>
               </thead>
               <tbody>
-                {movimentacoesFiltradas.map((mov, index) => (
-                  <tr key={`${mov.ca}-${index}`} className="border-b border-epi-border last:border-0">
-                    <td className="px-4 py-3 text-epi-muted">{mov.data}</td>
-                    <td className="px-4 py-3 text-epi-muted">{mov.tipo}</td>
-                    <td className="px-4 py-3 text-epi-ink">
-                      {mov.epi} • CA {mov.ca}
+                {movimentacoesFiltradas.map((mov) => (
+                  <tr key={mov.id} className="border-b border-epi-border last:border-0">
+                    <td className="px-4 py-3 text-epi-muted">{formatarData(mov.created_at)}</td>
+                    <td className="px-4 py-3 text-epi-muted">
+                      {mov.tipo === "entrada" ? "Entrada" : "Transferência"}
                     </td>
-                    <td className="px-4 py-3 text-epi-muted">{mov.qtd}</td>
-                    <td className="px-4 py-3 text-epi-muted">{mov.origemDestino}</td>
-                    <td className="px-4 py-3 text-epi-muted">{mov.responsavel}</td>
-                    <td className="px-4 py-3 text-epi-muted">{mov.documento}</td>
+                    <td className="px-4 py-3 text-epi-ink">
+                      {mov.epis?.nome ?? "—"} • CA {mov.epis?.ca ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-epi-muted">{mov.quantidade}</td>
+                    <td className="px-4 py-3 text-epi-muted">{origemDestino(mov)}</td>
+                    <td className="px-4 py-3 text-epi-muted">{mov.usuarios?.nome_completo ?? "—"}</td>
+                    <td className="px-4 py-3 text-epi-muted">{mov.documento || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -109,11 +157,12 @@ export default function MovimentacoesEstoque() {
   );
 }
 
-function KpiCard({ label, value }) {
+function KpiCard({ label, value, nota }) {
   return (
     <div className="rounded-xl border border-epi-border bg-white p-4">
       <p className="text-sm text-epi-muted">{label}</p>
       <p className="mt-1 text-2xl font-semibold text-epi-ink">{value}</p>
+      {nota && <p className="mt-1 text-xs text-epi-muted">{nota}</p>}
     </div>
   );
 }

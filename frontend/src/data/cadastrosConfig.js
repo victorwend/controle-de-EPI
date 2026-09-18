@@ -120,27 +120,9 @@ export const CADASTROS_CONFIG = {
     ],
   },
 
-  "local-estoque": {
-    navLabel: "Cadastros",
-    pageTitle: "Cadastro de local de estoque",
-    pageSubtitle: "Cadastro e manutenção de dados mestres.",
-    title: "Cadastro de local de estoque",
-    subtitle: "Locais físicos usados para saldo e movimentação dos EPIs.",
-    fields: [
-      { name: "nome", label: "Nome", type: "text", placeholder: "Almoxarifado Central" },
-      { name: "codigo", label: "Código", type: "text", placeholder: "EST-001" },
-      { name: "obra", label: "Obra", type: "select", placeholder: "Selecione a obra", options: [] },
-      { name: "responsavel", label: "Responsável", type: "select", placeholder: "Selecione", options: [] },
-      {
-        name: "permiteTransferencia",
-        label: "Permite transferência",
-        type: "select",
-        placeholder: "Selecione",
-        options: ["Sim", "Não"],
-      },
-      { name: "status", label: "Status", type: "select", placeholder: "Selecione", options: ["Ativo", "Inativo"] },
-    ],
-  },
+  // "local-estoque" saiu daqui em 17/09/2026, mesmo motivo de "obra": virou
+  // cadastro real (Supabase) — ver frontend/src/pages/estoque/NovoLocalEstoque.jsx,
+  // rota /estoque/locais/novo.
 
   // "obra" saiu daqui em 17/09/2026: virou cadastro real (Supabase), não mais
   // mock — ver frontend/src/pages/obras/NovaObra.jsx, rota /obras/nova.
@@ -152,5 +134,4 @@ export const CADASTROS_ORDER = [
   "fornecedor",
   "categoria-epi",
   "motivo-movimentacao",
-  "local-estoque",
 ];
