@@ -1,21 +1,24 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
-import { FUNCIONARIOS } from "../../data/funcionariosConfig.js";
-import { EPIS, ESTOQUE_MINIMO, MATRIZ_POR_FUNCAO } from "../../data/episConfig.js";
-import { SALDO_POR_LOCAL } from "../../data/estoqueConfig.js";
+import { supabase } from "../../lib/supabaseClient";
+import { MATRIZ_POR_FUNCAO } from "../../data/episConfig.js";
 
-const LOCAL_PADRAO = "Almoxarifado Central";
-
-function saldoDe(epiNome) {
-  return SALDO_POR_LOCAL[epiNome]?.[LOCAL_PADRAO] ?? 0;
-}
+const LOCAL_PADRAO_NOME = "Almoxarifado Central";
 
 // Wizard de entrega individual (03.02 → 03.03 → 03.04), com a confirmação biométrica
 // (03.05/03.09–03.12) como um sub-passo interno e o bloqueio por saldo insuficiente
 // (05.05) acionado a partir da própria entrega — RN055, ver plano de produção risco 6.
+// Biometria continua sendo só uma simulação de UI (sem leitor real integrado) — nada
+// dela é persistido; só o resultado final (entrega + itens + baixa) vai para o banco.
 export default function NovaEntrega() {
   const navigate = useNavigate();
+  const [carregando, setCarregando] = useState(true);
+  const [funcionarios, setFuncionarios] = useState([]);
+  const [epis, setEpis] = useState([]);
+  const [saldoMap, setSaldoMap] = useState({});
+  const [localPadrao, setLocalPadrao] = useState(null);
+
   const [step, setStep] = useState("funcionario");
 
   const [busca, setBusca] = useState("");
@@ -29,44 +32,100 @@ export default function NovaEntrega() {
   const [bioStep, setBioStep] = useState("aguardando");
   const [bioTentativas, setBioTentativas] = useState(0);
   const [comprovante, setComprovante] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregar() {
+      const [{ data: funcionariosData }, { data: episData }, { data: locaisData }] = await Promise.all([
+        supabase
+          .from("funcionarios")
+          .select("id, matricula, nome, funcao, biometria_cadastrada, obras(nome)")
+          .eq("status", "ativo")
+          .order("nome"),
+        supabase.from("epis").select("id, nome, ca, estoque_minimo").order("nome"),
+        supabase.from("locais_estoque").select("id, nome").eq("nome", LOCAL_PADRAO_NOME).limit(1),
+      ]);
+
+      if (!ativo) return;
+
+      setFuncionarios(funcionariosData ?? []);
+      setEpis(episData ?? []);
+
+      const local = locaisData?.[0] ?? null;
+      setLocalPadrao(local);
+
+      if (local) {
+        const { data: saldoData } = await supabase
+          .from("saldo_estoque")
+          .select("epi_id, saldo")
+          .eq("local_id", local.id);
+        if (!ativo) return;
+        setSaldoMap(Object.fromEntries((saldoData ?? []).map((s) => [s.epi_id, s.saldo])));
+      }
+
+      setCarregando(false);
+    }
+
+    carregar();
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const episPorId = useMemo(() => Object.fromEntries(epis.map((e) => [e.id, e])), [epis]);
+
+  function saldoDe(epiId) {
+    return saldoMap[epiId] ?? 0;
+  }
 
   const resultadosFuncionario = useMemo(() => {
     const termo = busca.trim().toLowerCase();
     if (!termo) return [];
-    return FUNCIONARIOS.filter((f) => f.nome.toLowerCase().includes(termo) || f.matricula.includes(termo));
-  }, [busca]);
+    return funcionarios.filter((f) => f.nome.toLowerCase().includes(termo) || f.matricula.includes(termo));
+  }, [busca, funcionarios]);
 
   const resultadosEpi = useMemo(() => {
     const termo = buscaEpi.trim().toLowerCase();
     if (!termo) return [];
-    return EPIS.filter((e) => e.nome.toLowerCase().includes(termo) && !itens.some((i) => i.epi === e.nome));
-  }, [buscaEpi, itens]);
+    return epis.filter((e) => e.nome.toLowerCase().includes(termo) && !itens.some((i) => i.epiId === e.id));
+  }, [buscaEpi, itens, epis]);
 
   const totalUnidades = itens.reduce((soma, item) => soma + item.qtd, 0);
   const itensAbaixoMinimo = itens.filter((item) => {
-    const minimo = ESTOQUE_MINIMO[item.epi];
-    return minimo !== undefined && saldoDe(item.epi) - item.qtd < minimo;
+    const minimo = episPorId[item.epiId]?.estoque_minimo;
+    return minimo != null && saldoDe(item.epiId) - item.qtd < minimo;
   });
-  const itensComProblema = itens.filter((item) => item.qtd > saldoDe(item.epi));
+  const itensComProblema = itens.filter((item) => item.qtd > saldoDe(item.epiId));
 
   function selecionarFuncionario(f) {
     setFuncionario(f);
     setBusca(`${f.nome} • Matrícula ${f.matricula}`);
     const matriz = MATRIZ_POR_FUNCAO[f.funcao];
-    setItens(matriz ? matriz.map((m) => ({ epi: m.epi, ca: m.ca, qtd: m.quantidade })) : []);
+    if (!matriz) {
+      setItens([]);
+      return;
+    }
+    const sugeridos = matriz
+      .map((m) => epis.find((e) => e.nome === m.epi))
+      .filter(Boolean)
+      .map((epi) => ({ epiId: epi.id, nome: epi.nome, ca: epi.ca, qtd: 1 }));
+    setItens(sugeridos);
   }
 
   function adicionarItem(epi) {
-    setItens((atual) => [...atual, { epi: epi.nome, ca: epi.ca, qtd: 1 }]);
+    setItens((atual) => [...atual, { epiId: epi.id, nome: epi.nome, ca: epi.ca, qtd: 1 }]);
     setBuscaEpi("");
   }
 
-  function removerItem(epiNome) {
-    setItens((atual) => atual.filter((item) => item.epi !== epiNome));
+  function removerItem(epiId) {
+    setItens((atual) => atual.filter((item) => item.epiId !== epiId));
   }
 
-  function alterarQtd(epiNome, qtd) {
-    setItens((atual) => atual.map((item) => (item.epi === epiNome ? { ...item, qtd: Math.max(1, qtd) } : item)));
+  function alterarQtd(epiId, qtd) {
+    setItens((atual) => atual.map((item) => (item.epiId === epiId ? { ...item, qtd: Math.max(1, qtd) } : item)));
   }
 
   function revisarEntrega() {
@@ -80,7 +139,7 @@ export default function NovaEntrega() {
   }
 
   function validarBiometria() {
-    if (!funcionario.biometriaCadastrada) {
+    if (!funcionario.biometria_cadastrada) {
       setBioStep("semBiometria");
       return;
     }
@@ -91,9 +150,26 @@ export default function NovaEntrega() {
     else setBioStep("confirmada");
   }
 
-  function concluirEntrega() {
+  async function concluirEntrega() {
+    setErro("");
+    setEnviando(true);
+
+    const { data, error } = await supabase.rpc("registrar_entrega", {
+      p_funcionario_id: funcionario.id,
+      p_local_id: localPadrao.id,
+      p_itens: itens.map((item) => ({ epi_id: item.epiId, quantidade: item.qtd })),
+      p_observacao: observacao.trim() || null,
+    });
+
+    setEnviando(false);
+
+    if (error) {
+      setErro(error.message || "Não foi possível concluir a entrega.");
+      return;
+    }
+
     setAceite(true);
-    setComprovante(`EPI-2026-${funcionario.matricula}`);
+    setComprovante(data);
     setStep("concluida");
   }
 
@@ -108,6 +184,7 @@ export default function NovaEntrega() {
     setBioStep("aguardando");
     setBioTentativas(0);
     setComprovante("");
+    setErro("");
   }
 
   const headers = {
@@ -118,6 +195,33 @@ export default function NovaEntrega() {
     biometria: BIO_HEADERS[bioStep],
     concluida: { title: "Entrega concluída", subtitle: "Registro finalizado com sucesso." },
   };
+
+  if (carregando) {
+    return (
+      <AppShell title="Nova entrega de EPI" activeSection="Entregas de EPI">
+        <p className="text-sm text-epi-muted">Carregando...</p>
+      </AppShell>
+    );
+  }
+
+  if (!localPadrao) {
+    return (
+      <AppShell title="Nova entrega de EPI" activeSection="Entregas de EPI">
+        <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
+          <h2 className="text-base font-semibold text-epi-ink">
+            Cadastre o local &quot;{LOCAL_PADRAO_NOME}&quot; antes de registrar entregas
+          </h2>
+          <p className="mt-2">
+            A entrega individual desconta o saldo desse local por padrão (mesma simplificação do protótipo — não
+            existe seletor de local nesta tela).
+          </p>
+          <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
+            Cadastrar local de estoque →
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell title={headers[step].title} subtitle={headers[step].subtitle} activeSection="Entregas de EPI">
@@ -158,11 +262,11 @@ export default function NovaEntrega() {
                   {resultadosFuncionario.map((f) => (
                     <button
                       type="button"
-                      key={f.matricula}
+                      key={f.id}
                       onClick={() => selecionarFuncionario(f)}
                       className="block w-full px-3 py-2 text-left text-sm text-epi-ink hover:bg-epi-paper"
                     >
-                      {f.nome} • Matrícula {f.matricula} • {f.obra}
+                      {f.nome} • Matrícula {f.matricula} • {f.obras?.nome ?? "—"}
                     </button>
                   ))}
                 </div>
@@ -172,17 +276,15 @@ export default function NovaEntrega() {
             {funcionario && (
               <>
                 <div className="mt-4 grid grid-cols-2 gap-4">
-                  <ReadOnlyField label="Obra atual" value={funcionario.obra} />
-                  <ReadOnlyField label="Função" value={funcionario.funcao} />
+                  <ReadOnlyField label="Obra atual" value={funcionario.obras?.nome ?? "—"} />
+                  <ReadOnlyField label="Função" value={funcionario.funcao || "—"} />
                 </div>
 
                 <div className="mt-4 rounded-lg border border-epi-border p-4">
                   <p className="text-sm font-semibold text-epi-ink">
                     {funcionario.nome} • Matrícula {funcionario.matricula}
                   </p>
-                  <p className="mt-1 text-xs text-epi-muted">
-                    {funcionario.episAtivos} EPIs ativos • {funcionario.pendencias} pendências
-                  </p>
+                  <p className="mt-1 text-xs text-epi-muted">0 EPIs ativos • 0 pendências</p>
                 </div>
               </>
             )}
@@ -222,7 +324,7 @@ export default function NovaEntrega() {
                   {resultadosEpi.map((epi) => (
                     <button
                       type="button"
-                      key={epi.ca}
+                      key={epi.id}
                       onClick={() => adicionarItem(epi)}
                       className="block w-full px-3 py-2 text-left text-sm text-epi-ink hover:bg-epi-paper"
                     >
@@ -246,23 +348,23 @@ export default function NovaEntrega() {
                 </thead>
                 <tbody>
                   {itens.map((item) => (
-                    <tr key={item.epi} className="border-b border-epi-border last:border-0">
-                      <td className="px-4 py-3 font-medium text-epi-ink">{item.epi}</td>
+                    <tr key={item.epiId} className="border-b border-epi-border last:border-0">
+                      <td className="px-4 py-3 font-medium text-epi-ink">{item.nome}</td>
                       <td className="px-4 py-3 text-epi-muted">{item.ca}</td>
                       <td className="px-4 py-3">
                         <input
                           type="number"
                           min="1"
                           value={item.qtd}
-                          onChange={(event) => alterarQtd(item.epi, Number(event.target.value))}
+                          onChange={(event) => alterarQtd(item.epiId, Number(event.target.value))}
                           className="h-8 w-16 rounded border border-epi-border px-2 text-sm"
                         />
                       </td>
-                      <td className={`px-4 py-3 ${item.qtd > saldoDe(item.epi) ? "font-medium text-red-600" : "text-epi-muted"}`}>
-                        {saldoDe(item.epi)}
+                      <td className={`px-4 py-3 ${item.qtd > saldoDe(item.epiId) ? "font-medium text-red-600" : "text-epi-muted"}`}>
+                        {saldoDe(item.epiId)}
                       </td>
                       <td className="px-4 py-3">
-                        <button type="button" onClick={() => removerItem(item.epi)} className="text-sm font-medium text-red-600">
+                        <button type="button" onClick={() => removerItem(item.epiId)} className="text-sm font-medium text-red-600">
                           Remover
                         </button>
                       </td>
@@ -325,11 +427,11 @@ export default function NovaEntrega() {
             <h3 className="text-base font-semibold text-epi-ink">Itens com problema</h3>
             <div className="mt-4 space-y-4">
               {itensComProblema.map((item) => (
-                <div key={item.epi} className="flex items-center justify-between border-b border-epi-border pb-4 last:border-0">
-                  <p className="font-medium text-epi-ink">{item.epi}</p>
+                <div key={item.epiId} className="flex items-center justify-between border-b border-epi-border pb-4 last:border-0">
+                  <p className="font-medium text-epi-ink">{item.nome}</p>
                   <div className="flex items-center gap-6 text-sm text-epi-muted">
                     <span>Solicitado: {item.qtd}</span>
-                    <span>Disponível: {saldoDe(item.epi)}</span>
+                    <span>Disponível: {saldoDe(item.epiId)}</span>
                     <span className="rounded-md border border-red-300 bg-red-50 px-2 py-1 text-xs font-medium text-red-700">
                       Saldo insuficiente
                     </span>
@@ -371,13 +473,13 @@ export default function NovaEntrega() {
               {funcionario.nome} • Matrícula {funcionario.matricula}
             </p>
             <p className="mt-3 text-xs font-medium uppercase text-epi-muted">Obra</p>
-            <p className="mt-1 text-sm text-epi-ink">{funcionario.obra}</p>
+            <p className="mt-1 text-sm text-epi-ink">{funcionario.obras?.nome ?? "—"}</p>
 
             <p className="mt-5 text-xs font-medium uppercase text-epi-muted">Itens da entrega</p>
             <div className="mt-2 divide-y divide-epi-border">
               {itens.map((item) => (
-                <div key={item.epi} className="flex items-center justify-between py-2 text-sm">
-                  <span className="text-epi-ink">{item.epi}</span>
+                <div key={item.epiId} className="flex items-center justify-between py-2 text-sm">
+                  <span className="text-epi-ink">{item.nome}</span>
                   <span className="text-epi-muted">CA {item.ca}</span>
                   <span className="text-epi-ink">{item.qtd} un.</span>
                 </div>
@@ -395,6 +497,10 @@ export default function NovaEntrega() {
               )}
             </div>
 
+            {erro && (
+              <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>
+            )}
+
             <div className="mt-6 flex items-center justify-between">
               <button
                 type="button"
@@ -406,10 +512,11 @@ export default function NovaEntrega() {
               {aceite ? (
                 <button
                   type="button"
+                  disabled={enviando}
                   onClick={concluirEntrega}
-                  className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+                  className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
                 >
-                  Concluir entrega
+                  {enviando ? "Concluindo..." : "Concluir entrega"}
                 </button>
               ) : (
                 <button
@@ -427,10 +534,10 @@ export default function NovaEntrega() {
             <h3 className="text-sm font-semibold text-epi-ink">Impacto no estoque</h3>
             <div className="mt-3 space-y-2 text-sm">
               {itens.map((item) => (
-                <div key={item.epi} className="flex items-center justify-between">
-                  <span className="text-epi-ink">{item.epi}</span>
-                  <span className={itensAbaixoMinimo.some((i) => i.epi === item.epi) ? "font-medium text-orange-600" : "text-epi-muted"}>
-                    {saldoDe(item.epi)} → {saldoDe(item.epi) - item.qtd}
+                <div key={item.epiId} className="flex items-center justify-between">
+                  <span className="text-epi-ink">{item.nome}</span>
+                  <span className={itensAbaixoMinimo.some((i) => i.epiId === item.epiId) ? "font-medium text-orange-600" : "text-epi-muted"}>
+                    {saldoDe(item.epiId)} → {saldoDe(item.epiId) - item.qtd}
                   </span>
                 </div>
               ))}
@@ -480,7 +587,7 @@ export default function NovaEntrega() {
                 </div>
                 <div>
                   <dt className="text-xs uppercase text-epi-muted">Obra</dt>
-                  <dd className="text-epi-ink">{funcionario.obra}</dd>
+                  <dd className="text-epi-ink">{funcionario.obras?.nome ?? "—"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs uppercase text-epi-muted">Registro</dt>
@@ -517,7 +624,10 @@ export default function NovaEntrega() {
                 type="button"
                 onClick={() =>
                   navigate("/cadastros/biometria", {
-                    state: { origem: "entrega", funcionario: { nome: funcionario.nome, matricula: funcionario.matricula, obra: funcionario.obra } },
+                    state: {
+                      origem: "entrega",
+                      funcionario: { nome: funcionario.nome, matricula: funcionario.matricula, obra: funcionario.obras?.nome ?? "—" },
+                    },
                   })
                 }
                 className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink"
@@ -537,10 +647,11 @@ export default function NovaEntrega() {
             {bioStep === "confirmada" && (
               <button
                 type="button"
+                disabled={enviando}
                 onClick={concluirEntrega}
-                className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink"
+                className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink disabled:opacity-60"
               >
-                Concluir entrega
+                {enviando ? "Concluindo..." : "Concluir entrega"}
               </button>
             )}
 
@@ -553,6 +664,10 @@ export default function NovaEntrega() {
               Validar biometria e concluir
             </button>
           </div>
+
+          {erro && (
+            <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>
+          )}
         </div>
       )}
 
@@ -565,7 +680,7 @@ export default function NovaEntrega() {
           <div className="mx-auto mt-6 max-w-[420px] rounded-lg bg-[#EBF5F0] p-5 text-left">
             <p className="font-semibold text-epi-ink">{funcionario.nome}</p>
             <p className="mt-1 text-sm text-epi-muted">
-              {itens.length} tipos de EPI • {funcionario.obra} • {new Date().toLocaleDateString("pt-BR")}
+              {itens.length} tipos de EPI • {funcionario.obras?.nome ?? "—"} • {new Date().toLocaleDateString("pt-BR")}
             </p>
             <p className="mt-1 text-sm text-epi-muted">Comprovante nº {comprovante}</p>
           </div>
@@ -648,7 +763,7 @@ function ResumoEntrega({ funcionario, itens, totalUnidades, itensAbaixoMinimo = 
           <p className="mt-3 text-xs uppercase text-epi-muted">Funcionário</p>
           <p className="text-sm font-medium text-epi-ink">{funcionario.nome}</p>
           <p className="mt-3 text-xs uppercase text-epi-muted">Obra</p>
-          <p className="text-sm text-epi-ink">{funcionario.obra}</p>
+          <p className="text-sm text-epi-ink">{funcionario.obras?.nome ?? "—"}</p>
           <p className="mt-3 text-xs uppercase text-epi-muted">EPIs selecionados</p>
           {itens.length === 0 ? (
             <p className="text-sm text-epi-muted">Nenhum item selecionado</p>
@@ -662,8 +777,8 @@ function ResumoEntrega({ funcionario, itens, totalUnidades, itensAbaixoMinimo = 
             <div className="mt-4 rounded-lg bg-orange-50 p-3">
               <p className="text-xs font-semibold text-orange-700">Atenção</p>
               {itensAbaixoMinimo.map((item) => (
-                <p key={item.epi} className="mt-1 text-xs text-orange-700/80">
-                  {item.epi} ficará abaixo do estoque mínimo após a entrega.
+                <p key={item.epiId} className="mt-1 text-xs text-orange-700/80">
+                  {item.nome} ficará abaixo do estoque mínimo após a entrega.
                 </p>
               ))}
             </div>

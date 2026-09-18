@@ -1,22 +1,52 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
-import { ENTREGAS, TOTAL_ENTREGAS_MES } from "../../data/entregasConfig.js";
-import { OBRAS_RESUMO } from "../../data/obrasConfig.js";
+import { supabase } from "../../lib/supabaseClient";
+
+function formatarData(dataIso) {
+  return new Date(dataIso).toLocaleDateString("pt-BR");
+}
 
 export default function EntregasLista() {
   const [busca, setBusca] = useState("");
   const [obraFiltro, setObraFiltro] = useState("");
+  const [linhas, setLinhas] = useState([]);
+  const [obras, setObras] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const entregasFiltradas = useMemo(() => {
+  useEffect(() => {
+    let ativo = true;
+    Promise.all([
+      supabase
+        .from("entrega_itens")
+        .select(
+          "id, quantidade, epis(nome, ca), entregas(created_at, status, funcionarios(nome, matricula, obras(id, nome)))"
+        )
+        .order("id", { ascending: false }),
+      supabase.from("obras").select("id, nome").order("nome"),
+    ]).then(([{ data: itensData }, { data: obrasData }]) => {
+      if (!ativo) return;
+      setLinhas(itensData ?? []);
+      setObras(obrasData ?? []);
+      setLoading(false);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const linhasFiltradas = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return ENTREGAS.filter((entrega) => {
+    return linhas.filter((linha) => {
+      const funcionarioNome = linha.entregas?.funcionarios?.nome ?? "";
+      const epiNome = linha.epis?.nome ?? "";
       const bateBusca =
-        !termo || entrega.funcionario.toLowerCase().includes(termo) || entrega.epi.toLowerCase().includes(termo);
-      const bateObra = !obraFiltro || entrega.obra === obraFiltro;
+        !termo || funcionarioNome.toLowerCase().includes(termo) || epiNome.toLowerCase().includes(termo);
+      const obraId = linha.entregas?.funcionarios?.obras?.id;
+      const bateObra = !obraFiltro || obraId === obraFiltro;
       return bateBusca && bateObra;
     });
-  }, [busca, obraFiltro]);
+  }, [busca, obraFiltro, linhas]);
 
   return (
     <AppShell title="Controle de Equipamentos de Proteção Individual" activeSection="Entregas de EPI">
@@ -61,8 +91,8 @@ export default function EntregasLista() {
           className="h-11 w-52 rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
         >
           <option value="">Todas as obras</option>
-          {OBRAS_RESUMO.map((obra) => (
-            <option key={obra.slug} value={obra.nome.split(" — ")[0]}>
+          {obras.map((obra) => (
+            <option key={obra.id} value={obra.id}>
               {obra.nome}
             </option>
           ))}
@@ -86,20 +116,34 @@ export default function EntregasLista() {
             </tr>
           </thead>
           <tbody>
-            {entregasFiltradas.map((entrega, index) => (
-              <tr key={`${entrega.matricula}-${index}`} className="border-b border-epi-border last:border-0">
-                <td className="px-4 py-3 font-medium text-epi-ink">{entrega.funcionario}</td>
-                <td className="px-4 py-3 text-epi-muted">{entrega.epi}</td>
-                <td className="px-4 py-3 text-epi-muted">{entrega.ca}</td>
-                <td className="px-4 py-3 text-epi-muted">{entrega.obra}</td>
-                <td className="px-4 py-3 text-epi-muted">{entrega.data}</td>
-                <td className="px-4 py-3 text-epi-muted">{entrega.qtd}</td>
-                <td className={`px-4 py-3 font-medium ${entrega.status === "Pendente" ? "text-orange-600" : "text-epi-muted"}`}>
-                  {entrega.status}
+            {loading && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
+                  Carregando...
                 </td>
               </tr>
-            ))}
-            {entregasFiltradas.length === 0 && (
+            )}
+            {!loading &&
+              linhasFiltradas.map((linha) => (
+                <tr key={linha.id} className="border-b border-epi-border last:border-0">
+                  <td className="px-4 py-3 font-medium text-epi-ink">{linha.entregas?.funcionarios?.nome ?? "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">{linha.epis?.nome ?? "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">{linha.epis?.ca ?? "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">{linha.entregas?.funcionarios?.obras?.nome ?? "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">
+                    {linha.entregas?.created_at ? formatarData(linha.entregas.created_at) : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-epi-muted">{linha.quantidade}</td>
+                  <td
+                    className={`px-4 py-3 font-medium ${
+                      linha.entregas?.status === "pendente" ? "text-orange-600" : "text-epi-muted"
+                    }`}
+                  >
+                    {linha.entregas?.status === "pendente" ? "Pendente" : "Confirmada"}
+                  </td>
+                </tr>
+              ))}
+            {!loading && linhasFiltradas.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
                   Nenhuma entrega encontrada.
@@ -111,7 +155,7 @@ export default function EntregasLista() {
       </div>
 
       <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
-        Mostrando 1-{entregasFiltradas.length} de {TOTAL_ENTREGAS_MES} entregas.
+        Mostrando {linhasFiltradas.length} de {linhas.length} entregas.
       </p>
       <p className="mt-1 max-w-[1060px] text-sm text-epi-muted">
         Validação automática de estoque: a entrega é bloqueada quando não houver quantidade suficiente.

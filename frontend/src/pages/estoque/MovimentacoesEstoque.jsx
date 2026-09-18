@@ -12,7 +12,16 @@ function origemDestino(mov) {
   if (mov.tipo === "entrada") {
     return `${mov.fornecedor || "Fornecedor"} → ${mov.destino?.nome ?? "—"}`;
   }
+  if (mov.tipo === "saida") {
+    return `${mov.origem?.nome ?? "—"} → Entrega`;
+  }
   return `${mov.origem?.nome ?? "—"} → ${mov.destino?.nome ?? "—"}`;
+}
+
+function labelTipo(tipo) {
+  if (tipo === "entrada") return "Entrada";
+  if (tipo === "saida") return "Saída";
+  return "Transferência";
 }
 
 export default function MovimentacoesEstoque() {
@@ -48,6 +57,7 @@ export default function MovimentacoesEstoque() {
     return {
       noMes: doMes.length,
       entradas: doMes.filter((mov) => mov.tipo === "entrada").length,
+      saidas: doMes.filter((mov) => mov.tipo === "saida").length,
       transferencias: doMes.filter((mov) => mov.tipo === "transferencia").length,
     };
   }, [movimentacoes]);
@@ -87,9 +97,10 @@ export default function MovimentacoesEstoque() {
         </Link>
       </div>
 
-      <div className="mb-6 grid max-w-[1060px] grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="mb-6 grid max-w-[1060px] grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
         <KpiCard label="Movimentações no mês" value={kpis.noMes} />
         <KpiCard label="Entradas" value={kpis.entradas} />
+        <KpiCard label="Saídas" value={kpis.saidas} />
         <KpiCard label="Transferências" value={kpis.transferencias} />
         <KpiCard label="Ajustes" value={0} nota="Ajuste manual ainda não implementado." />
       </div>
@@ -109,6 +120,7 @@ export default function MovimentacoesEstoque() {
         >
           <option value="">Todos os tipos</option>
           <option value="entrada">Entrada</option>
+          <option value="saida">Saída</option>
           <option value="transferencia">Transferência</option>
         </select>
       </div>
@@ -137,7 +149,7 @@ export default function MovimentacoesEstoque() {
                   <tr key={mov.id} className="border-b border-epi-border last:border-0">
                     <td className="px-4 py-3 text-epi-muted">{formatarData(mov.created_at)}</td>
                     <td className="px-4 py-3 text-epi-muted">
-                      {mov.tipo === "entrada" ? "Entrada" : "Transferência"}
+                      {labelTipo(mov.tipo)}
                     </td>
                     <td className="px-4 py-3 text-epi-ink">
                       {mov.epis?.nome ?? "—"} • CA {mov.epis?.ca ?? "—"}
