@@ -142,21 +142,8 @@ export const CADASTROS_CONFIG = {
     ],
   },
 
-  obra: {
-    navLabel: "Cadastros",
-    pageTitle: "Cadastro de obra",
-    pageSubtitle: "Cadastro e manutenção de dados mestres.",
-    title: "Cadastro de obra",
-    subtitle: "Dados para vincular funcionários, estoque e entregas.",
-    fields: [
-      { name: "nomeObra", label: "Nome da obra", type: "text", placeholder: "Obra BR-040" },
-      { name: "codigo", label: "Código", type: "text", placeholder: "OBR-001" },
-      { name: "centroCusto", label: "Centro de custo", type: "text", placeholder: "CC-101" },
-      { name: "responsavel", label: "Responsável", type: "select", placeholder: "Selecione o responsável", options: [] },
-      { name: "cidadeUf", label: "Cidade / UF", type: "text", placeholder: "João Pinheiro / MG" },
-      { name: "status", label: "Status", type: "select", placeholder: "Selecione", options: ["Ativa", "Inativa"] },
-    ],
-  },
+  // "obra" saiu daqui em 17/09/2026: virou cadastro real (Supabase), não mais
+  // mock — ver frontend/src/pages/obras/NovaObra.jsx, rota /obras/nova.
 };
 
 export const CADASTROS_ORDER = [
@@ -166,5 +153,4 @@ export const CADASTROS_ORDER = [
   "categoria-epi",
   "motivo-movimentacao",
   "local-estoque",
-  "obra",
 ];

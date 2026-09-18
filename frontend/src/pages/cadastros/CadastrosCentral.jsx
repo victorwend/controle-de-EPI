@@ -7,7 +7,7 @@ import AppShell from "../../layouts/AppShell.jsx";
 const TILES = [
   { label: "Funcionários", to: "/funcionarios/novo" },
   { label: "EPIs e CAs", to: "/epis-cas/novo" },
-  { label: "Obras", to: "/cadastros/obra" },
+  { label: "Obras", to: "/obras/nova" },
   { label: "Fornecedores", to: "/cadastros/fornecedor" },
   { label: "Cargos / Funções", to: "/cadastros/cargo" },
   { label: "Setores / Centros de custo", to: "/cadastros/setor" },

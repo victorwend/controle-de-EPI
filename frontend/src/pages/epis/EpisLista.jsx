@@ -1,24 +1,61 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
-import { EPIS } from "../../data/episConfig.js";
+import { supabase } from "../../lib/supabaseClient";
+
+// RN079 deixa o prazo de antecedência do alerta de CA como "configurável",
+// ainda sem valor definido (ver docs/02-requisitos/regras-de-negocio.md).
+// 60 dias é um default provisório até isso virar campo de configuração real.
+const DIAS_PARA_VENCER = 60;
+
+function calcularStatus(validadeCA) {
+  const hoje = new Date();
+  const validade = new Date(`${validadeCA}T00:00:00`);
+  const diffDias = Math.floor((validade - hoje) / (1000 * 60 * 60 * 24));
+
+  if (diffDias < 0) return "Vencido";
+  if (diffDias <= DIAS_PARA_VENCER) return "A vencer";
+  return "Válido";
+}
+
+function formatarData(validadeCA) {
+  return new Date(`${validadeCA}T00:00:00`).toLocaleDateString("pt-BR");
+}
 
 export default function EpisLista() {
   const [busca, setBusca] = useState("");
   const [validadeFiltro, setValidadeFiltro] = useState("");
+  const [epis, setEpis] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let ativo = true;
+    supabase
+      .from("epis")
+      .select("id, nome, categoria, ca, fabricante, validade_ca, periodicidade_troca")
+      .order("nome")
+      .then(({ data }) => {
+        if (!ativo) return;
+        setEpis((data ?? []).map((epi) => ({ ...epi, status: calcularStatus(epi.validade_ca) })));
+        setLoading(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const episFiltrados = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    return EPIS.filter((epi) => {
+    return epis.filter((epi) => {
       const bateBusca =
         !termo ||
         epi.nome.toLowerCase().includes(termo) ||
         epi.ca.includes(termo) ||
-        epi.fabricante.toLowerCase().includes(termo);
+        (epi.fabricante ?? "").toLowerCase().includes(termo);
       const bateValidade = !validadeFiltro || epi.status === validadeFiltro;
       return bateBusca && bateValidade;
     });
-  }, [busca, validadeFiltro]);
+  }, [busca, validadeFiltro, epis]);
 
   return (
     <AppShell title="Controle de Equipamentos de Proteção Individual" activeSection="EPIs e CAs">
@@ -51,6 +88,7 @@ export default function EpisLista() {
           <option value="">Todas as validades</option>
           <option value="Válido">Válido</option>
           <option value="A vencer">A vencer</option>
+          <option value="Vencido">Vencido</option>
         </select>
       </div>
 
@@ -68,20 +106,36 @@ export default function EpisLista() {
             </tr>
           </thead>
           <tbody>
-            {episFiltrados.map((epi) => (
-              <tr key={epi.ca} className="border-b border-epi-border last:border-0">
-                <td className="px-4 py-3 font-medium text-epi-ink">{epi.nome}</td>
-                <td className="px-4 py-3 text-epi-muted">{epi.categoria}</td>
-                <td className="px-4 py-3 text-epi-muted">{epi.ca}</td>
-                <td className="px-4 py-3 text-epi-muted">{epi.fabricante}</td>
-                <td className="px-4 py-3 text-epi-muted">{epi.validadeCA}</td>
-                <td className="px-4 py-3 text-epi-muted">{epi.periodicidade}</td>
-                <td className={`px-4 py-3 font-medium ${epi.status === "A vencer" ? "text-orange-600" : "text-epi-muted"}`}>
-                  {epi.status}
+            {loading && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
+                  Carregando...
                 </td>
               </tr>
-            ))}
-            {episFiltrados.length === 0 && (
+            )}
+            {!loading &&
+              episFiltrados.map((epi) => (
+                <tr key={epi.id} className="border-b border-epi-border last:border-0">
+                  <td className="px-4 py-3 font-medium text-epi-ink">{epi.nome}</td>
+                  <td className="px-4 py-3 text-epi-muted">{epi.categoria || "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">{epi.ca}</td>
+                  <td className="px-4 py-3 text-epi-muted">{epi.fabricante || "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">{formatarData(epi.validade_ca)}</td>
+                  <td className="px-4 py-3 text-epi-muted">{epi.periodicidade_troca || "—"}</td>
+                  <td
+                    className={`px-4 py-3 font-medium ${
+                      epi.status === "Vencido"
+                        ? "text-red-600"
+                        : epi.status === "A vencer"
+                          ? "text-orange-600"
+                          : "text-epi-muted"
+                    }`}
+                  >
+                    {epi.status}
+                  </td>
+                </tr>
+              ))}
+            {!loading && episFiltrados.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
                   Nenhum EPI encontrado.

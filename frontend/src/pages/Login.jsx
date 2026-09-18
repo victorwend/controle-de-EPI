@@ -1,14 +1,33 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [erro, setErro] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const cadastroSucesso = Boolean(location.state?.cadastroSucesso);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    // TODO: integrar com o backend de autenticação (Sprint 3 — Autenticação e segurança).
+    setErro("");
+    setLoading(true);
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErro("E-mail ou senha inválidos.");
+      return;
+    }
+
     navigate("/visao-geral");
   }
 
@@ -46,15 +65,21 @@ export default function Login() {
             Entre com suas credenciais para continuar.
           </p>
 
+          {cadastroSucesso && (
+            <p className="mt-6 rounded-[10px] bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+              Conta criada com sucesso! Faça login para continuar.
+            </p>
+          )}
+
           <form className="mt-8" onSubmit={handleSubmit}>
             <label className="block text-[13px] font-semibold text-epi-ink">
-              E-mail ou usuário
+              E-mail
               <input
-                type="text"
+                type="email"
                 autoComplete="username"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                placeholder="Digite seu e-mail ou usuário"
+                placeholder="Digite seu e-mail"
                 className="mt-2 h-[52px] w-full rounded-[10px] border border-epi-border px-4 text-sm font-normal text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
               />
             </label>
@@ -78,18 +103,28 @@ export default function Login() {
               Esqueci minha senha
             </button>
 
+            {erro && (
+              <p className="mt-6 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                {erro}
+              </p>
+            )}
+
             <button
               type="submit"
-              className="mt-8 h-[54px] w-full rounded-[10px] bg-epi-brand text-[15px] font-semibold text-white transition hover:opacity-90"
+              disabled={loading}
+              className="mt-8 h-[54px] w-full rounded-[10px] bg-epi-brand text-[15px] font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
             >
-              Entrar
+              {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
 
           <p className="mt-8 text-center text-[13px] leading-relaxed text-epi-muted">
-            Acesso restrito a usuários autorizados.
+            Ainda não tem uma empresa cadastrada?{" "}
+            <Link to="/cadastro" className="font-semibold text-epi-brand">
+              Criar conta
+            </Link>
             <br />
-            Em caso de dificuldade, contate o administrador do sistema.
+            Em caso de dificuldade, contate o administrador da sua empresa.
           </p>
         </div>
       </main>

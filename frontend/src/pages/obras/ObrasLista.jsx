@@ -13,7 +13,7 @@ export default function ObrasLista() {
           </p>
         </div>
         <Link
-          to="/cadastros/obra"
+          to="/obras/nova"
           className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
         >
           + Nova obra

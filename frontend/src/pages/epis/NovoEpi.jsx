@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
+import { supabase } from "../../lib/supabaseClient";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 const PONTOS_PARA_VALIDAR = [
   "CA é obrigatório?",
@@ -13,6 +15,7 @@ const PONTOS_PARA_VALIDAR = [
 
 export default function NovoEpi() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
   const [nome, setNome] = useState("");
   const [categoria, setCategoria] = useState("");
   const [ca, setCa] = useState("");
@@ -21,10 +24,43 @@ export default function NovoEpi() {
   const [periodicidade, setPeriodicidade] = useState("");
   const [estoqueMinimo, setEstoqueMinimo] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-    // TODO: persistir no backend quando a Sprint 6 definir a API de EPIs e CAs.
+
+    if (!nome.trim() || !ca.trim() || !validadeCA) {
+      setErro("Preencha nome, CA e validade do CA.");
+      return;
+    }
+
+    setErro("");
+    setLoading(true);
+
+    const { error } = await supabase.from("epis").insert({
+      empresa_id: usuario.empresa_id,
+      nome: nome.trim(),
+      categoria: categoria.trim() || null,
+      ca: ca.trim(),
+      fabricante: fabricante.trim() || null,
+      validade_ca: validadeCA,
+      periodicidade_troca: periodicidade.trim() || null,
+      estoque_minimo: estoqueMinimo === "" ? null : Number(estoqueMinimo),
+      descricao: descricao.trim() || null,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErro(
+        error.code === "23505"
+          ? "Já existe um EPI cadastrado com esse CA."
+          : error.message || "Não foi possível cadastrar o EPI."
+      );
+      return;
+    }
+
     navigate("/epis-cas");
   }
 
@@ -51,17 +87,14 @@ export default function NovoEpi() {
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">
-              Categoria *
-              <select
-                required
+              Categoria
+              <input
+                type="text"
                 value={categoria}
                 onChange={(event) => setCategoria(event.target.value)}
-                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-              >
-                <option value="" disabled>
-                  Selecione a categoria
-                </option>
-              </select>
+                placeholder="Cabeça, Mãos, Olhos..."
+                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
+              />
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">
@@ -132,12 +165,17 @@ export default function NovoEpi() {
             </label>
           </div>
 
+          {erro && (
+            <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>
+          )}
+
           <div className="mt-8 flex items-center justify-end border-t border-epi-border pt-6">
             <button
               type="submit"
-              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+              disabled={loading}
+              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
             >
-              Salvar EPI
+              {loading ? "Salvando..." : "Salvar EPI"}
             </button>
           </div>
         </form>

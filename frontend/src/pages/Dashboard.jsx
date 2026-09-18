@@ -1,7 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../layouts/AppShell.jsx";
-import { DASHBOARD_KPIS, DASHBOARD_ALERTAS } from "../data/dashboardConfig.js";
-import { ENTREGAS } from "../data/entregasConfig.js";
+import { supabase } from "../lib/supabaseClient";
 
 const AÇÕES_RÁPIDAS = [
   { label: "Registrar entrega", to: "/entregas/nova" },
@@ -11,19 +11,37 @@ const AÇÕES_RÁPIDAS = [
 ];
 
 export default function Dashboard() {
+  const [totalObras, setTotalObras] = useState(null);
+
+  useEffect(() => {
+    let ativo = true;
+    supabase
+      .from("obras")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => {
+        if (ativo) setTotalObras(count ?? 0);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
   return (
     <AppShell title="Visão geral" subtitle="Acompanhe entregas, estoque, vencimentos e conformidade dos EPIs." activeSection="Visão geral">
-      <div className="mb-6 flex justify-end">
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm text-epi-muted">
+          {totalObras === null ? "Carregando obras..." : `${totalObras} obra(s) cadastrada(s)`}
+        </p>
         <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
           + Nova entrega
         </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="EPIs em estoque" valor={DASHBOARD_KPIS.episEmEstoque.valor.toLocaleString("pt-BR")} nota={DASHBOARD_KPIS.episEmEstoque.nota} />
-        <KpiCard label="Entregas no mês" valor={DASHBOARD_KPIS.entregasNoMes.valor} nota={DASHBOARD_KPIS.entregasNoMes.nota} />
-        <KpiCard label="Estoque crítico" valor={DASHBOARD_KPIS.estoqueCritico.valor} nota={DASHBOARD_KPIS.estoqueCritico.nota} />
-        <KpiCard label="CAs a vencer" valor={DASHBOARD_KPIS.casAVencer.valor} nota={DASHBOARD_KPIS.casAVencer.nota} />
+        <KpiCard label="EPIs em estoque" valor={0} nota="Cadastro de EPIs e estoque ainda não implementado." />
+        <KpiCard label="Entregas no mês" valor={0} nota="Nenhuma entrega registrada ainda." />
+        <KpiCard label="Estoque crítico" valor={0} nota="Controle de estoque ainda não implementado." />
+        <KpiCard label="CAs a vencer" valor={0} nota="Cadastro de EPIs e CAs ainda não implementado." />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
@@ -34,45 +52,18 @@ export default function Dashboard() {
               Ver todas
             </Link>
           </div>
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                  <th className="py-2 pr-4 font-medium">Funcionário</th>
-                  <th className="py-2 pr-4 font-medium">EPI</th>
-                  <th className="py-2 pr-4 font-medium">Obra</th>
-                  <th className="py-2 pr-4 font-medium">Data</th>
-                  <th className="py-2 font-medium">Qtd.</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ENTREGAS.map((entrega, index) => (
-                  <tr key={`${entrega.matricula}-${index}`} className="border-b border-epi-border text-epi-ink last:border-0">
-                    <td className="py-2.5 pr-4 font-medium">{entrega.funcionario}</td>
-                    <td className="py-2.5 pr-4 text-epi-muted">{entrega.epi}</td>
-                    <td className="py-2.5 pr-4 text-epi-muted">{entrega.obra}</td>
-                    <td className="py-2.5 pr-4 text-epi-muted">{entrega.data}</td>
-                    <td className="py-2.5 text-epi-muted">{entrega.qtd}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="mt-4 rounded-lg border border-dashed border-epi-border p-6 text-center text-sm text-epi-muted">
+            Nenhuma movimentação registrada ainda.
+            <br />
+            <Link to="/entregas/nova" className="mt-2 inline-block font-semibold text-epi-brand">
+              Registrar a primeira entrega
+            </Link>
           </div>
         </div>
 
         <div className="rounded-xl border border-epi-border bg-white p-6">
           <h3 className="text-sm font-semibold text-epi-ink">Alertas e pendências</h3>
-          <div className="mt-4 space-y-4">
-            {DASHBOARD_ALERTAS.map((alerta) => (
-              <div key={alerta.titulo} className="flex items-start gap-2.5">
-                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alerta.cor === "laranja" ? "bg-orange-500" : "bg-epi-brand"}`} />
-                <div>
-                  <p className="text-sm font-medium text-epi-ink">{alerta.titulo}</p>
-                  <p className="text-xs text-epi-muted">{alerta.descricao}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <p className="mt-4 text-sm text-epi-muted">Nenhum alerta no momento.</p>
         </div>
       </div>
 

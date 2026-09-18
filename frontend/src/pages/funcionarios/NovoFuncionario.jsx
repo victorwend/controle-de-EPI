@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
-import { OBRAS_RESUMO } from "../../data/obrasConfig.js";
+import { supabase } from "../../lib/supabaseClient";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 const VALIDACOES_PENDENTES = [
   "Quais dados são obrigatórios?",
@@ -13,18 +14,68 @@ const VALIDACOES_PENDENTES = [
 
 export default function NovoFuncionario() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
   const [nome, setNome] = useState("");
   const [matricula, setMatricula] = useState("");
   const [cpf, setCpf] = useState("");
   const [funcao, setFuncao] = useState("");
-  const [obra, setObra] = useState("");
+  const [obraId, setObraId] = useState("");
   const [dataAdmissao, setDataAdmissao] = useState("");
   const [setor, setSetor] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const [obras, setObras] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState("");
 
-  function handleSubmit(event) {
+  useEffect(() => {
+    let ativo = true;
+    supabase
+      .from("obras")
+      .select("id, nome")
+      .order("nome")
+      .then(({ data }) => {
+        if (ativo) setObras(data ?? []);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  async function handleSubmit(event) {
     event.preventDefault();
-    // TODO: persistir no backend quando a Sprint 4/5 definir a API de funcionários.
+
+    if (!nome.trim() || !matricula.trim() || !obraId) {
+      setErro("Preencha nome, matrícula e obra.");
+      return;
+    }
+
+    setErro("");
+    setLoading(true);
+
+    const { error } = await supabase.from("funcionarios").insert({
+      empresa_id: usuario.empresa_id,
+      nome: nome.trim(),
+      matricula: matricula.trim(),
+      cpf: cpf.trim() || null,
+      funcao: funcao.trim() || null,
+      setor: setor.trim() || null,
+      obra_id: obraId,
+      data_admissao: dataAdmissao || null,
+      observacoes: observacoes.trim() || null,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      setErro(
+        error.code === "23505"
+          ? "Já existe um funcionário com essa matrícula."
+          : error.message || "Não foi possível cadastrar o funcionário."
+      );
+      return;
+    }
+
+    navigate("/funcionarios");
   }
 
   function abrirCadastroBiometria() {
@@ -34,7 +85,7 @@ export default function NovoFuncionario() {
         funcionario: {
           nome: nome || "Novo funcionário",
           matricula: matricula || "—",
-          obra: obra || "—",
+          obra: obras.find((obra) => obra.id === obraId)?.nome || "—",
         },
       },
     });
@@ -86,33 +137,30 @@ export default function NovoFuncionario() {
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">
-              Função *
-              <select
-                required
+              Função
+              <input
+                type="text"
                 value={funcao}
                 onChange={(event) => setFuncao(event.target.value)}
-                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-              >
-                <option value="" disabled>
-                  Selecione a função
-                </option>
-              </select>
+                placeholder="Servente, Pedreiro, Operador..."
+                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
+              />
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">
               Obra *
               <select
                 required
-                value={obra}
-                onChange={(event) => setObra(event.target.value)}
+                value={obraId}
+                onChange={(event) => setObraId(event.target.value)}
                 className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
               >
                 <option value="" disabled>
                   Selecione a obra
                 </option>
-                {OBRAS_RESUMO.map((item) => (
-                  <option key={item.slug} value={item.nome}>
-                    {item.nome}
+                {obras.map((obra) => (
+                  <option key={obra.id} value={obra.id}>
+                    {obra.nome}
                   </option>
                 ))}
               </select>
@@ -130,15 +178,13 @@ export default function NovoFuncionario() {
 
             <label className="block text-[13px] font-medium text-epi-ink">
               Setor
-              <select
+              <input
+                type="text"
                 value={setor}
                 onChange={(event) => setSetor(event.target.value)}
-                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
-              >
-                <option value="" disabled>
-                  Selecione o setor
-                </option>
-              </select>
+                placeholder="Obra, Administrativo..."
+                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
+              />
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink md:col-span-2">
@@ -152,6 +198,10 @@ export default function NovoFuncionario() {
             </label>
           </div>
 
+          {erro && (
+            <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>
+          )}
+
           <div className="mt-8 flex items-center justify-between border-t border-epi-border pt-6">
             <button
               type="button"
@@ -162,9 +212,10 @@ export default function NovoFuncionario() {
             </button>
             <button
               type="submit"
-              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+              disabled={loading}
+              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
             >
-              Salvar funcionário
+              {loading ? "Salvando..." : "Salvar funcionário"}
             </button>
           </div>
         </form>
