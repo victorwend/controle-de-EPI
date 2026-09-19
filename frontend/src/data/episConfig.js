@@ -7,19 +7,8 @@ export const EPIS = [
   { nome: "Botina segurança", categoria: "Pés", ca: "66554", fabricante: "Marluvas", validadeCA: "30/03/27", periodicidade: "12 meses", status: "Válido" },
 ];
 
-// Estoque mínimo por EPI: não vem do Figma (a lista 06.01 não mostra essa coluna) -
-// adicionado para o alerta "abaixo do estoque mínimo" da Sprint 8 (03.03) funcionar
-// com um limite real em vez de um número inventado na hora.
-export const ESTOQUE_MINIMO = {
-  "Capacete classe B": 20,
-  "Luva de raspa": 15,
-  "Óculos incolor": 15,
-  "Protetor auricular": 10,
-  "Botina segurança": 15,
-  // "Colete refletivo" segue o mesmo caso do saldo em estoqueConfig.js — só existe na
-  // Matriz do Servente (06.03), nunca em 06.01. Mínimo abaixo é estimado, não do Figma.
-  "Colete refletivo": 10,
-};
+// ESTOQUE_MINIMO saiu daqui em 18/09/2026: NovaEntrega.jsx usa a coluna real
+// epis.estoque_minimo agora (ver supabase/05_epis.sql).
 
 export const FUNCOES_MATRIZ = ["Servente", "Pedreiro", "Operador", "Motorista", "Armador"];
 

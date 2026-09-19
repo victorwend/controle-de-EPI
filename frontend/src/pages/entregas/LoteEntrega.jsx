@@ -1,48 +1,99 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
-import { FUNCIONARIOS } from "../../data/funcionariosConfig.js";
+import { supabase } from "../../lib/supabaseClient";
 import { MATRIZ_POR_FUNCAO, FUNCOES_MATRIZ } from "../../data/episConfig.js";
-import { SALDO_POR_LOCAL } from "../../data/estoqueConfig.js";
 
-const OBRAS_COM_EQUIPE = ["BR-040", "Usina", "Britagem"];
-const LOCAL_PADRAO = "Almoxarifado Central";
+const LOCAL_PADRAO_NOME = "Almoxarifado Central";
 
 // Tela 03.07 — Entregas — Em lote. Diferente das outras telas de Entregas, o
 // Figma preenche esta com dado só estrutural ("Funcionário 01 • matrícula" x4,
 // sem nomes reais) — um indício de que ela é montada dinamicamente a partir de
-// Obra + Equipe/função, não de uma lista fixa. Aqui os dois seletores filtram
-// FUNCIONARIOS de verdade em vez de reproduzir o texto de espaço reservado.
+// Obra + Equipe/função, não de uma lista fixa. Cada confirmação individual
+// reaproveita a mesma função registrar_entrega() da entrega avulsa — um lote
+// nada mais é que N entregas independentes com a mesma lista de itens.
 export default function LoteEntrega() {
   const navigate = useNavigate();
-  const [obra, setObra] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [obras, setObras] = useState([]);
+  const [funcionarios, setFuncionarios] = useState([]);
+  const [epis, setEpis] = useState([]);
+  const [saldoMap, setSaldoMap] = useState({});
+  const [localPadrao, setLocalPadrao] = useState(null);
+
+  const [obraId, setObraId] = useState("");
   const [funcao, setFuncao] = useState("");
   const [selecionados, setSelecionados] = useState({});
   const [step, setStep] = useState("config");
   const [status, setStatus] = useState({});
+  const [erroGeral, setErroGeral] = useState("");
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregar() {
+      const [{ data: obrasData }, { data: funcionariosData }, { data: episData }, { data: locaisData }] = await Promise.all([
+        supabase.from("obras").select("id, nome").order("nome"),
+        supabase.from("funcionarios").select("id, matricula, nome, funcao, obra_id, status").eq("status", "ativo"),
+        supabase.from("epis").select("id, nome, ca").order("nome"),
+        supabase.from("locais_estoque").select("id, nome").eq("nome", LOCAL_PADRAO_NOME).limit(1),
+      ]);
+
+      if (!ativo) return;
+      setObras(obrasData ?? []);
+      setFuncionarios(funcionariosData ?? []);
+      setEpis(episData ?? []);
+
+      const local = locaisData?.[0] ?? null;
+      setLocalPadrao(local);
+
+      if (local) {
+        const { data: saldoData } = await supabase.from("saldo_estoque").select("epi_id, saldo").eq("local_id", local.id);
+        if (!ativo) return;
+        setSaldoMap(Object.fromEntries((saldoData ?? []).map((s) => [s.epi_id, s.saldo])));
+      }
+
+      setCarregando(false);
+    }
+
+    carregar();
+    return () => {
+      ativo = false;
+    };
+  }, []);
 
   const funcionariosFiltrados = useMemo(() => {
-    if (!obra || !funcao) return [];
-    return FUNCIONARIOS.filter((f) => f.obra === obra && f.funcao === funcao && f.status === "Ativo");
-  }, [obra, funcao]);
+    if (!obraId || !funcao) return [];
+    return funcionarios.filter((f) => f.obra_id === obraId && f.funcao === funcao);
+  }, [obraId, funcao, funcionarios]);
 
-  function aplicarFiltro(novaObra, novaFuncao) {
-    setObra(novaObra);
+  function aplicarFiltro(novaObraId, novaFuncao) {
+    setObraId(novaObraId);
     setFuncao(novaFuncao);
-    const filtrados = FUNCIONARIOS.filter((f) => f.obra === novaObra && f.funcao === novaFuncao && f.status === "Ativo");
+    const filtrados = funcionarios.filter((f) => f.obra_id === novaObraId && f.funcao === novaFuncao);
     const marcados = {};
-    filtrados.forEach((f) => (marcados[f.matricula] = true));
+    filtrados.forEach((f) => (marcados[f.id] = true));
     setSelecionados(marcados);
   }
 
   const selecionadosCount = Object.values(selecionados).filter(Boolean).length;
-  const itensSugeridos = (MATRIZ_POR_FUNCAO[funcao] ?? []).filter((m) => m.obrigatoriedade === "Obrigatório");
+
+  const itensSugeridos = useMemo(() => {
+    const matriz = (MATRIZ_POR_FUNCAO[funcao] ?? []).filter((m) => m.obrigatoriedade === "Obrigatório");
+    return matriz
+      .map((m) => {
+        const epi = epis.find((e) => e.nome === m.epi);
+        return epi ? { epiId: epi.id, nome: epi.nome, quantidade: m.quantidade } : null;
+      })
+      .filter(Boolean);
+  }, [funcao, epis]);
+
   const totalUnidades = itensSugeridos.reduce((soma, item) => soma + item.quantidade * selecionadosCount, 0);
 
   const itensSemSaldo = itensSugeridos
     .map((item) => {
       const necessario = item.quantidade * selecionadosCount;
-      const disponivel = SALDO_POR_LOCAL[item.epi]?.[LOCAL_PADRAO] ?? 0;
+      const disponivel = saldoMap[item.epiId] ?? 0;
       return { ...item, necessario, disponivel };
     })
     .filter((item) => item.necessario > item.disponivel);
@@ -50,18 +101,38 @@ export default function LoteEntrega() {
   function iniciarConfirmacao() {
     const inicial = {};
     Object.keys(selecionados)
-      .filter((matricula) => selecionados[matricula])
-      .forEach((matricula) => (inicial[matricula] = "pendente"));
+      .filter((id) => selecionados[id])
+      .forEach((id) => (inicial[id] = "pendente"));
     setStatus(inicial);
     setStep("confirmando");
   }
 
-  function confirmarPessoa(matricula) {
-    setStatus((atual) => ({ ...atual, [matricula]: "confirmado" }));
+  async function confirmarPessoa(funcionarioId) {
+    setErroGeral("");
+
+    if (!localPadrao) {
+      setErroGeral(`Cadastre o local "${LOCAL_PADRAO_NOME}" antes de continuar.`);
+      return;
+    }
+
+    const { error } = await supabase.rpc("registrar_entrega", {
+      p_funcionario_id: funcionarioId,
+      p_local_id: localPadrao.id,
+      p_itens: itensSugeridos.map((item) => ({ epi_id: item.epiId, quantidade: item.quantidade })),
+      p_observacao: "Entrega em lote",
+    });
+
+    if (error) {
+      setStatus((atual) => ({ ...atual, [funcionarioId]: "falhou" }));
+      setErroGeral(error.message || "Falha ao confirmar um dos funcionários.");
+      return;
+    }
+
+    setStatus((atual) => ({ ...atual, [funcionarioId]: "confirmado" }));
   }
 
-  function marcarFalha(matricula) {
-    setStatus((atual) => ({ ...atual, [matricula]: "falhou" }));
+  function marcarFalha(funcionarioId) {
+    setStatus((atual) => ({ ...atual, [funcionarioId]: "falhou" }));
   }
 
   const pendentes = Object.values(status).filter((s) => s === "pendente").length;
@@ -74,6 +145,14 @@ export default function LoteEntrega() {
     concluida: { title: "Entrega em lote concluída", subtitle: "Comprovantes gerados para os funcionários confirmados." },
   };
 
+  if (carregando) {
+    return (
+      <AppShell title="Entrega de EPI em lote" activeSection="Entregas de EPI">
+        <p className="text-sm text-epi-muted">Carregando...</p>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell title={headers[step].title} subtitle={headers[step].subtitle} activeSection="Entregas de EPI">
       {step === "config" && (
@@ -83,14 +162,14 @@ export default function LoteEntrega() {
               <label className="block text-[13px] font-medium text-epi-ink">
                 Obra
                 <select
-                  value={obra}
+                  value={obraId}
                   onChange={(event) => aplicarFiltro(event.target.value, funcao)}
                   className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
                 >
                   <option value="">Selecione a obra</option>
-                  {OBRAS_COM_EQUIPE.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
+                  {obras.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nome}
                     </option>
                   ))}
                 </select>
@@ -99,7 +178,7 @@ export default function LoteEntrega() {
                 Equipe / função
                 <select
                   value={funcao}
-                  onChange={(event) => aplicarFiltro(obra, event.target.value)}
+                  onChange={(event) => aplicarFiltro(obraId, event.target.value)}
                   className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
                 >
                   <option value="">Selecione a função</option>
@@ -117,7 +196,7 @@ export default function LoteEntrega() {
             </div>
           </div>
 
-          {obra && funcao && (
+          {obraId && funcao && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <div className="rounded-xl border border-epi-border bg-white p-6">
                 <h3 className="text-sm font-semibold text-epi-ink">1. Selecionar funcionários</h3>
@@ -126,13 +205,11 @@ export default function LoteEntrega() {
                     <p className="text-sm text-epi-muted">Nenhum funcionário ativo encontrado para esse filtro.</p>
                   )}
                   {funcionariosFiltrados.map((f) => (
-                    <label key={f.matricula} className="flex items-center gap-2 text-sm text-epi-ink">
+                    <label key={f.id} className="flex items-center gap-2 text-sm text-epi-ink">
                       <input
                         type="checkbox"
-                        checked={Boolean(selecionados[f.matricula])}
-                        onChange={() =>
-                          setSelecionados((atual) => ({ ...atual, [f.matricula]: !atual[f.matricula] }))
-                        }
+                        checked={Boolean(selecionados[f.id])}
+                        onChange={() => setSelecionados((atual) => ({ ...atual, [f.id]: !atual[f.id] }))}
                         className="h-4 w-4 accent-epi-brand"
                       />
                       {f.nome} • matrícula {f.matricula}
@@ -150,8 +227,8 @@ export default function LoteEntrega() {
                   <>
                     <div className="mt-3 space-y-2">
                       {itensSugeridos.map((item) => (
-                        <div key={item.ca} className="flex items-center justify-between text-sm">
-                          <span className="text-epi-ink">{item.epi}</span>
+                        <div key={item.epiId} className="flex items-center justify-between text-sm">
+                          <span className="text-epi-ink">{item.nome}</span>
                           <span className="text-epi-muted">{item.quantidade} por funcionário</span>
                         </div>
                       ))}
@@ -170,8 +247,8 @@ export default function LoteEntrega() {
               <p className="text-sm font-semibold text-red-700">Saldo insuficiente para o lote</p>
               <div className="mt-2 space-y-1 text-sm text-red-700/80">
                 {itensSemSaldo.map((item) => (
-                  <p key={item.ca}>
-                    {item.epi}: necessário {item.necessario}, disponível {item.disponivel}
+                  <p key={item.epiId}>
+                    {item.nome}: necessário {item.necessario}, disponível {item.disponivel}
                   </p>
                 ))}
               </div>
@@ -207,28 +284,28 @@ export default function LoteEntrega() {
         <div className="max-w-[1060px] space-y-6">
           <div className="rounded-xl border border-epi-border bg-white p-6">
             <div className="space-y-3">
-              {Object.keys(status).map((matricula) => {
-                const f = FUNCIONARIOS.find((fn) => fn.matricula === matricula);
-                const s = status[matricula];
+              {Object.keys(status).map((funcionarioId) => {
+                const f = funcionarios.find((fn) => fn.id === funcionarioId);
+                const s = status[funcionarioId];
                 return (
-                  <div key={matricula} className="flex items-center justify-between border-b border-epi-border pb-3 last:border-0">
+                  <div key={funcionarioId} className="flex items-center justify-between border-b border-epi-border pb-3 last:border-0">
                     <div>
-                      <p className="text-sm font-medium text-epi-ink">{f.nome}</p>
-                      <p className="text-xs text-epi-muted">Matrícula {f.matricula}</p>
+                      <p className="text-sm font-medium text-epi-ink">{f?.nome}</p>
+                      <p className="text-xs text-epi-muted">Matrícula {f?.matricula}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       {s === "pendente" && (
                         <>
                           <button
                             type="button"
-                            onClick={() => marcarFalha(matricula)}
+                            onClick={() => marcarFalha(funcionarioId)}
                             className="text-sm font-medium text-red-600"
                           >
                             Marcar falha
                           </button>
                           <button
                             type="button"
-                            onClick={() => confirmarPessoa(matricula)}
+                            onClick={() => confirmarPessoa(funcionarioId)}
                             className="rounded-lg bg-epi-brand px-3 py-1.5 text-sm font-semibold text-white hover:opacity-90"
                           >
                             Confirmar entrega
@@ -247,7 +324,7 @@ export default function LoteEntrega() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => setStatus((atual) => ({ ...atual, [matricula]: "pendente" }))}
+                            onClick={() => setStatus((atual) => ({ ...atual, [funcionarioId]: "pendente" }))}
                             className="text-sm font-medium text-epi-ink underline"
                           >
                             Tentar novamente
@@ -260,6 +337,10 @@ export default function LoteEntrega() {
               })}
             </div>
           </div>
+
+          {erroGeral && (
+            <p className="rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erroGeral}</p>
+          )}
 
           <p className="text-sm text-epi-muted">
             Uma falha individual não bloqueia os demais — cada aceite é registrado separadamente (RN071/RN072).
@@ -294,20 +375,20 @@ export default function LoteEntrega() {
           <p className="mt-1 text-sm text-epi-muted">A baixa no estoque foi atualizada para os funcionários confirmados.</p>
 
           <div className="mx-auto mt-6 max-w-[520px] space-y-2 text-left">
-            {confirmados.map(([matricula]) => {
-              const f = FUNCIONARIOS.find((fn) => fn.matricula === matricula);
+            {confirmados.map(([funcionarioId]) => {
+              const f = funcionarios.find((fn) => fn.id === funcionarioId);
               return (
-                <div key={matricula} className="rounded-lg bg-[#EBF5F0] p-4">
-                  <p className="text-sm font-semibold text-epi-ink">{f.nome}</p>
-                  <p className="text-xs text-epi-muted">Comprovante nº EPI-2026-{matricula}</p>
+                <div key={funcionarioId} className="rounded-lg bg-[#EBF5F0] p-4">
+                  <p className="text-sm font-semibold text-epi-ink">{f?.nome}</p>
+                  <p className="text-xs text-epi-muted">Matrícula {f?.matricula}</p>
                 </div>
               );
             })}
-            {falharam.map(([matricula]) => {
-              const f = FUNCIONARIOS.find((fn) => fn.matricula === matricula);
+            {falharam.map(([funcionarioId]) => {
+              const f = funcionarios.find((fn) => fn.id === funcionarioId);
               return (
-                <div key={matricula} className="rounded-lg bg-red-50 p-4">
-                  <p className="text-sm font-semibold text-epi-ink">{f.nome}</p>
+                <div key={funcionarioId} className="rounded-lg bg-red-50 p-4">
+                  <p className="text-sm font-semibold text-epi-ink">{f?.nome}</p>
                   <p className="text-xs text-red-700">Falhou — precisa ser refeita individualmente</p>
                 </div>
               );
@@ -325,7 +406,7 @@ export default function LoteEntrega() {
             <button
               type="button"
               onClick={() => {
-                setObra("");
+                setObraId("");
                 setFuncao("");
                 setSelecionados({});
                 setStatus({});
