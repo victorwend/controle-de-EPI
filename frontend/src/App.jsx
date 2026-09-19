@@ -3,9 +3,11 @@ import { AuthProvider } from "./context/AuthContext.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
 import Login from "./pages/Login.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
+import DefinirSenha from "./pages/DefinirSenha.jsx";
 import CadastrosCentral from "./pages/cadastros/CadastrosCentral.jsx";
 import CadastroMestre from "./pages/cadastros/CadastroMestre.jsx";
 import BiometriaCadastro from "./pages/cadastros/BiometriaCadastro.jsx";
+import NovoUsuario from "./pages/cadastros/NovoUsuario.jsx";
 import ObrasLista from "./pages/obras/ObrasLista.jsx";
 import ObraDetalhe from "./pages/obras/ObraDetalhe.jsx";
 import NovaObra from "./pages/obras/NovaObra.jsx";
@@ -37,11 +39,13 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/cadastro" element={<Cadastro />} />
+          <Route path="/definir-senha" element={<DefinirSenha />} />
 
           <Route element={<RequireAuth />}>
             <Route path="/obras/nova" element={<NovaObra />} />
             <Route path="/cadastros" element={<CadastrosCentral />} />
             <Route path="/cadastros/biometria" element={<BiometriaCadastro />} />
+            <Route path="/cadastros/usuario" element={<NovoUsuario />} />
             <Route path="/cadastros/:tipo" element={<CadastroMestre />} />
             <Route path="/obras" element={<ObrasLista />} />
             <Route path="/obras/:slug" element={<ObraDetalhe />} />
