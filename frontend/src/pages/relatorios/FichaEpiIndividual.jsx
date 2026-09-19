@@ -1,24 +1,52 @@
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { FUNCIONARIOS } from "../../data/funcionariosConfig.js";
-import { FICHA_HISTORICO_POR_FUNCIONARIO } from "../../data/entregasConfig.js";
+import { supabase } from "../../lib/supabaseClient";
+
+function formatarData(dataIso) {
+  return new Date(dataIso).toLocaleDateString("pt-BR");
+}
 
 // Tela 08.02 — Relatórios — Ficha individual de EPI. Documento de impressão/PDF,
 // por isso não usa o AppShell (menu lateral fixo não faz sentido numa folha
 // impressa) — layout próprio, com a barra de ações escondida no print via
 // print:hidden.
-//
-// Correção em relação ao Figma: as seções "EPIs entregues ao colaborador" e
-// "Termo de responsabilidade" reaproveitavam literalmente os números agregados
-// de TODOS os funcionários vindos do painel de Relatórios (08.01) — mesmos
-// valores de "Consumo por EPI" e "Entregas por obra", que não fazem sentido
-// como ficha de UM colaborador. Aqui usam o histórico real do próprio
-// funcionário (mesma fonte da Ficha, 04.03) — mesmo tipo de copiar-colar já
-// corrigido em sessões anteriores (ver README, Sprint 7).
 export default function FichaEpiIndividual() {
   const { matricula } = useParams();
-  const funcionario = FUNCIONARIOS.find((f) => f.matricula === matricula);
-  const historico = funcionario ? FICHA_HISTORICO_POR_FUNCIONARIO[funcionario.matricula] ?? [] : [];
-  const ultimoResponsavel = historico[0]?.responsavel;
+  const [funcionario, setFuncionario] = useState(undefined);
+  const [historico, setHistorico] = useState([]);
+
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregar() {
+      const { data: funcionarioData } = await supabase
+        .from("funcionarios")
+        .select("id, matricula, nome, funcao, status, obras(nome)")
+        .eq("matricula", matricula)
+        .maybeSingle();
+
+      if (!ativo) return;
+      setFuncionario(funcionarioData ?? null);
+
+      if (funcionarioData) {
+        const { data: itensData } = await supabase
+          .from("entrega_itens")
+          .select("id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, usuarios(nome_completo))")
+          .eq("entregas.funcionario_id", funcionarioData.id)
+          .order("id", { ascending: false });
+        if (ativo) setHistorico(itensData ?? []);
+      }
+    }
+
+    carregar();
+    return () => {
+      ativo = false;
+    };
+  }, [matricula]);
+
+  if (funcionario === undefined) {
+    return <div className="mx-auto max-w-[900px] p-10 text-sm text-epi-muted">Carregando...</div>;
+  }
 
   if (!funcionario) {
     return (
@@ -30,6 +58,9 @@ export default function FichaEpiIndividual() {
       </div>
     );
   }
+
+  const ultimaEntrega = historico[0]?.entregas?.created_at;
+  const ultimoResponsavel = historico[0]?.entregas?.usuarios?.nome_completo;
 
   return (
     <div className="min-h-screen bg-epi-paper">
@@ -54,14 +85,14 @@ export default function FichaEpiIndividual() {
           <span className="font-semibold text-epi-ink">
             {funcionario.nome} • Matrícula {funcionario.matricula}
           </span>
-          <span className="ml-3 text-epi-muted">{funcionario.obra}</span>
+          <span className="ml-3 text-epi-muted">{funcionario.obras?.nome ?? "—"}</span>
         </div>
 
         <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-4">
-          <Stat label="Função" valor={funcionario.funcao} />
-          <Stat label="Status" valor={funcionario.status} />
-          <Stat label="EPIs ativos" valor={funcionario.episAtivos} />
-          <Stat label="Última atualização" valor={funcionario.ultimaEntrega ?? "—"} />
+          <Stat label="Função" valor={funcionario.funcao || "—"} />
+          <Stat label="Status" valor={funcionario.status === "ativo" ? "Ativo" : "Inativo"} />
+          <Stat label="EPIs ativos" valor={historico.length} />
+          <Stat label="Última atualização" valor={ultimaEntrega ? formatarData(ultimaEntrega) : "—"} />
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -72,9 +103,9 @@ export default function FichaEpiIndividual() {
             ) : (
               <div className="mt-3 space-y-2 text-sm">
                 {historico.map((item) => (
-                  <div key={item.ca} className="flex items-center justify-between">
-                    <span className="text-epi-ink">{item.epi}</span>
-                    <span className="text-epi-muted">{item.qtd} un.</span>
+                  <div key={item.id} className="flex items-center justify-between">
+                    <span className="text-epi-ink">{item.epis?.nome ?? "—"}</span>
+                    <span className="text-epi-muted">{item.quantidade} un.</span>
                   </div>
                 ))}
               </div>
@@ -89,7 +120,7 @@ export default function FichaEpiIndividual() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-epi-ink">Data do aceite</span>
-                <span className="text-epi-muted">{funcionario.ultimaEntrega ?? "—"}</span>
+                <span className="text-epi-muted">{ultimaEntrega ? formatarData(ultimaEntrega) : "—"}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-epi-ink">Responsável pela entrega</span>

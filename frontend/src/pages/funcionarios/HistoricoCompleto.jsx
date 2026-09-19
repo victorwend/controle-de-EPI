@@ -1,29 +1,55 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 
 const FILTROS = ["Todos", "Entregas", "Trocas", "Devoluções"];
 
+function formatarData(dataIso) {
+  return new Date(dataIso).toLocaleDateString("pt-BR");
+}
+
 export default function HistoricoCompleto() {
   const { matricula } = useParams();
   const [funcionario, setFuncionario] = useState(undefined);
+  const [historico, setHistorico] = useState([]);
   const [filtro, setFiltro] = useState("Todos");
 
   useEffect(() => {
     let ativo = true;
-    supabase
-      .from("funcionarios")
-      .select("id, matricula, nome, funcao, obras(nome)")
-      .eq("matricula", matricula)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (ativo) setFuncionario(data ?? null);
-      });
+
+    async function carregar() {
+      const { data: funcionarioData } = await supabase
+        .from("funcionarios")
+        .select("id, matricula, nome, funcao, obras(nome)")
+        .eq("matricula", matricula)
+        .maybeSingle();
+
+      if (!ativo) return;
+      setFuncionario(funcionarioData ?? null);
+
+      if (funcionarioData) {
+        const { data: itensData } = await supabase
+          .from("entrega_itens")
+          .select("id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, usuarios(nome_completo))")
+          .eq("entregas.funcionario_id", funcionarioData.id)
+          .order("id", { ascending: false });
+        if (ativo) setHistorico(itensData ?? []);
+      }
+    }
+
+    carregar();
     return () => {
       ativo = false;
     };
   }, [matricula]);
+
+  const historicoFiltrado = useMemo(() => {
+    // Só existe entrega real por enquanto — Trocas/Devoluções ficam
+    // honestamente vazias até esses módulos serem migrados do mock.
+    if (filtro === "Trocas" || filtro === "Devoluções") return [];
+    return historico;
+  }, [historico, filtro]);
 
   if (funcionario === undefined) {
     return (
@@ -59,7 +85,7 @@ export default function HistoricoCompleto() {
           </div>
           <div className="flex gap-6 text-right">
             <div>
-              <p className="text-lg font-semibold text-epi-brand">0 EPIs ativos</p>
+              <p className="text-lg font-semibold text-epi-brand">{historico.length} EPIs ativos</p>
             </div>
             <div>
               <p className="text-lg font-semibold text-epi-brand">0 pendências</p>
@@ -97,11 +123,25 @@ export default function HistoricoCompleto() {
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td colSpan={6} className="px-4 py-6 text-center text-epi-muted">
-                Nenhuma movimentação encontrada — o módulo de Entregas ainda não foi migrado do mock.
-              </td>
-            </tr>
+            {historicoFiltrado.map((item) => (
+              <tr key={item.id} className="border-b border-epi-border last:border-0">
+                <td className="px-4 py-3 text-epi-muted">{formatarData(item.entregas.created_at)}</td>
+                <td className="px-4 py-3 font-medium text-epi-ink">Entrega</td>
+                <td className="px-4 py-3 text-epi-muted">
+                  {item.epis?.nome ?? "—"} • CA {item.epis?.ca ?? "—"}
+                </td>
+                <td className="px-4 py-3 text-epi-muted">{item.quantidade}</td>
+                <td className="px-4 py-3 text-epi-muted">Biometria</td>
+                <td className="px-4 py-3 text-epi-muted">{item.entregas.usuarios?.nome_completo ?? "—"}</td>
+              </tr>
+            ))}
+            {historicoFiltrado.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-epi-muted">
+                  Nenhuma movimentação encontrada.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
