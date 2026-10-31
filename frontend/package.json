@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test src/lib/validacoes.test.js src/lib/importacaoFuncionarios.test.js"
+    "test": "node --test src/lib/validacoes.test.js src/lib/importacaoFuncionarios.test.js src/lib/locaisEstoque.test.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
+import { useLocalEstoque } from "../../hooks/useLocalEstoque";
+import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
 import { MATRIZ_POR_FUNCAO, FUNCOES_MATRIZ } from "../../data/episConfig.js";
-
-const LOCAL_PADRAO_NOME = "Almoxarifado Central";
 
 // Tela 03.07 — Entregas — Em lote. Diferente das outras telas de Entregas, o
 // Figma preenche esta com dado só estrutural ("Funcionário 01 • matrícula" x4,
@@ -18,8 +18,9 @@ export default function LoteEntrega() {
   const [obras, setObras] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
   const [epis, setEpis] = useState([]);
-  const [saldoMap, setSaldoMap] = useState({});
-  const [localPadrao, setLocalPadrao] = useState(null);
+  // EPI-325: local de estoque escolhido na tela (antes era fixo no "Almoxarifado Central").
+  const { locais, local: localPadrao, localId, setLocalId, saldoMap, carregandoLocais, carregandoSaldo } =
+    useLocalEstoque();
 
   const [obraId, setObraId] = useState("");
   const [funcao, setFuncao] = useState("");
@@ -32,26 +33,16 @@ export default function LoteEntrega() {
     let ativo = true;
 
     async function carregar() {
-      const [{ data: obrasData }, { data: funcionariosData }, { data: episData }, { data: locaisData }] = await Promise.all([
+      const [{ data: obrasData }, { data: funcionariosData }, { data: episData }] = await Promise.all([
         supabase.from("obras").select("id, nome").order("nome"),
         supabase.from("funcionarios").select("id, matricula, nome, funcao, obra_id, status").eq("status", "ativo"),
         supabase.from("epis").select("id, nome, ca").order("nome"),
-        supabase.from("locais_estoque").select("id, nome").eq("nome", LOCAL_PADRAO_NOME).limit(1),
       ]);
 
       if (!ativo) return;
       setObras(obrasData ?? []);
       setFuncionarios(funcionariosData ?? []);
       setEpis(episData ?? []);
-
-      const local = locaisData?.[0] ?? null;
-      setLocalPadrao(local);
-
-      if (local) {
-        const { data: saldoData } = await supabase.from("saldo_estoque").select("epi_id, saldo").eq("local_id", local.id);
-        if (!ativo) return;
-        setSaldoMap(Object.fromEntries((saldoData ?? []).map((s) => [s.epi_id, s.saldo])));
-      }
 
       setCarregando(false);
     }
@@ -111,7 +102,7 @@ export default function LoteEntrega() {
     setErroGeral("");
 
     if (!localPadrao) {
-      setErroGeral(`Cadastre o local "${LOCAL_PADRAO_NOME}" antes de continuar.`);
+      setErroGeral("Escolha o local de estoque antes de continuar.");
       return;
     }
 
@@ -145,7 +136,7 @@ export default function LoteEntrega() {
     concluida: { title: "Entrega em lote concluída", subtitle: "Comprovantes gerados para os funcionários confirmados." },
   };
 
-  if (carregando) {
+  if (carregando || carregandoLocais) {
     return (
       <AppShell title="Entrega de EPI em lote" activeSection="Entregas de EPI">
         <p className="text-sm text-epi-muted">Carregando...</p>
@@ -153,8 +144,32 @@ export default function LoteEntrega() {
     );
   }
 
+  if (locais.length === 0) {
+    return (
+      <AppShell title="Entrega de EPI em lote" activeSection="Entregas de EPI">
+        <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
+          <h2 className="text-base font-semibold text-epi-ink">Cadastre um local de estoque antes de continuar</h2>
+          <p className="mt-2">A entrega em lote desconta os EPIs do saldo de um local de estoque.</p>
+          <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
+            Cadastrar local de estoque →
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell title={headers[step].title} subtitle={headers[step].subtitle} activeSection="Entregas de EPI">
+      {step === "config" && (
+        <SeletorLocalEstoque
+          rotulo="Entregar a partir do estoque"
+          locais={locais}
+          value={localId}
+          onChange={setLocalId}
+          carregandoSaldo={carregandoSaldo}
+        />
+      )}
+
       {step === "config" && (
         <div className="max-w-[1060px] space-y-6">
           <div className="rounded-xl border border-epi-border bg-white p-6">

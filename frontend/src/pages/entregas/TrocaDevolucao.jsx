@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import SuccessModal from "../../components/SuccessModal.jsx";
 import { supabase } from "../../lib/supabaseClient";
-
-const LOCAL_PADRAO_NOME = "Almoxarifado Central";
+import { useLocalEstoque } from "../../hooks/useLocalEstoque";
+import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
 
 // Tela 03.08 — Entregas — Troca e devolução. O Figma não desenha um seletor de
 // funcionário nesta tela — como ela só é alcançável pelo botão "Troca /
@@ -12,7 +12,10 @@ const LOCAL_PADRAO_NOME = "Almoxarifado Central";
 // passo de busca adicionado nas sessões anteriores.
 export default function TrocaDevolucao() {
   const navigate = useNavigate();
-  const [localPadrao, setLocalPadrao] = useState(null);
+  // EPI-325: local de estoque escolhido na tela (antes era fixo no "Almoxarifado Central").
+  // É para ele que volta o item devolvido ao estoque e dele que sai a reposição da troca.
+  const { locais, local: localPadrao, localId, setLocalId, carregandoLocais, carregandoSaldo } =
+    useLocalEstoque();
   const [funcionarios, setFuncionarios] = useState([]);
   const [carregando, setCarregando] = useState(true);
 
@@ -30,19 +33,16 @@ export default function TrocaDevolucao() {
 
   useEffect(() => {
     let ativo = true;
-    Promise.all([
-      supabase
-        .from("funcionarios")
-        .select("id, matricula, nome, funcao, obras(nome)")
-        .eq("status", "ativo")
-        .order("nome"),
-      supabase.from("locais_estoque").select("id, nome").eq("nome", LOCAL_PADRAO_NOME).limit(1),
-    ]).then(([{ data: funcionariosData }, { data: locaisData }]) => {
-      if (!ativo) return;
-      setFuncionarios(funcionariosData ?? []);
-      setLocalPadrao(locaisData?.[0] ?? null);
-      setCarregando(false);
-    });
+    supabase
+      .from("funcionarios")
+      .select("id, matricula, nome, funcao, obras(nome)")
+      .eq("status", "ativo")
+      .order("nome")
+      .then(({ data: funcionariosData }) => {
+        if (!ativo) return;
+        setFuncionarios(funcionariosData ?? []);
+        setCarregando(false);
+      });
     return () => {
       ativo = false;
     };
@@ -81,7 +81,7 @@ export default function TrocaDevolucao() {
     event.preventDefault();
 
     if (!localPadrao) {
-      setErro(`Cadastre o local "${LOCAL_PADRAO_NOME}" antes de registrar trocas/devoluções.`);
+      setErro("Escolha o local de estoque antes de registrar trocas/devoluções.");
       return;
     }
 
@@ -110,7 +110,7 @@ export default function TrocaDevolucao() {
     setConcluida(true);
   }
 
-  if (carregando) {
+  if (carregando || carregandoLocais) {
     return (
       <AppShell title="Troca e devolução de EPI" activeSection="Entregas de EPI">
         <p className="text-sm text-epi-muted">Carregando...</p>
@@ -118,8 +118,33 @@ export default function TrocaDevolucao() {
     );
   }
 
+  if (locais.length === 0) {
+    return (
+      <AppShell title="Troca e devolução de EPI" activeSection="Entregas de EPI">
+        <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
+          <h2 className="text-base font-semibold text-epi-ink">Cadastre um local de estoque antes de continuar</h2>
+          <p className="mt-2">O item devolvido volta para um local de estoque, e a reposição da troca sai dele.</p>
+          <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
+            Cadastrar local de estoque →
+          </Link>
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell title="Troca e devolução de EPI" subtitle="Registre devoluções e trocas mantendo o histórico da movimentação." activeSection="Entregas de EPI">
+      {!concluida && (
+        <SeletorLocalEstoque
+          rotulo="Estoque da devolução e da reposição"
+          locais={locais}
+          value={localId}
+          onChange={setLocalId}
+          disabled={enviando}
+          carregandoSaldo={carregandoSaldo}
+        />
+      )}
+
       {!funcionario && (
         <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-8">
           <h2 className="text-lg font-semibold text-epi-ink">Selecionar funcionário</h2>
