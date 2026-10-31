@@ -70,12 +70,20 @@ export default function EpisLista() {
           <h2 className="text-xl font-semibold text-epi-ink">EPIs e Certificados de Aprovação</h2>
           <p className="mt-1 text-sm text-epi-muted">Cadastre os equipamentos e acompanhe validade dos CAs.</p>
         </div>
-        <Link
-          to="/epis-cas/novo"
-          className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-        >
-          + Novo EPI
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            to="/epis-cas/matriz"
+            className="rounded-lg border border-epi-brand px-4 py-2.5 text-sm font-semibold text-epi-brand hover:bg-epi-paper"
+          >
+            Matriz EPI x Função
+          </Link>
+          <Link
+            to="/epis-cas/novo"
+            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+          >
+            + Novo EPI
+          </Link>
+        </div>
       </div>
 
       <div className="mb-4 flex max-w-[1060px] gap-3">
