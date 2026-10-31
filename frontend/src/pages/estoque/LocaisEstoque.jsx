@@ -8,6 +8,10 @@ import { useAuth } from "../../context/AuthContext.jsx";
 // inativar e reativar. Local não é apagado (pode ter histórico de
 // movimentações, ver correção 10): ele é INATIVADO.
 // O banco não deixa inativar local que ainda tem EPI (correção 13).
+//
+// EPI-327: local INATIVO e SEM ESTOQUE pode ser EXCLUÍDO, desde que nunca
+// tenha sido usado (sem entradas, entregas ou transferências). Local com
+// histórico o banco não deixa apagar (correção 10): ele fica inativo.
 
 const PERFIS_QUE_GERENCIAM = ["administrador", "almoxarife"];
 
@@ -20,6 +24,7 @@ export default function LocaisEstoque() {
   const [mostrarInativos, setMostrarInativos] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [alterandoId, setAlterandoId] = useState("");
+  const [confirmandoExclusaoId, setConfirmandoExclusaoId] = useState("");
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
 
@@ -65,6 +70,36 @@ export default function LocaisEstoque() {
       return;
     }
     setAviso(novoStatus === "ativo" ? `"${local.nome}" foi reativado.` : `"${local.nome}" foi inativado.`);
+    carregar();
+  }
+
+  async function excluir(local) {
+    setErro("");
+    setAviso("");
+    setAlterandoId(local.id);
+
+    const { error, count } = await supabase
+      .from("locais_estoque")
+      .delete({ count: "exact" })
+      .eq("id", local.id);
+
+    setAlterandoId("");
+    setConfirmandoExclusaoId("");
+
+    if (error) {
+      // 23503 = chave estrangeira: o local já foi usado em alguma movimentação.
+      setErro(
+        error.code === "23503"
+          ? `"${local.nome}" já tem histórico (entradas, entregas ou transferências) e não pode ser excluído. Ele continua inativo, guardando o histórico.`
+          : error.message || "Não foi possível excluir o local."
+      );
+      return;
+    }
+    if (count === 0) {
+      setErro("Você não tem permissão para excluir este local.");
+      return;
+    }
+    setAviso(`"${local.nome}" foi excluído.`);
     carregar();
   }
 
@@ -164,6 +199,36 @@ export default function LocaisEstoque() {
                         >
                           {ativo ? "Inativar" : "Reativar"}
                         </button>
+                        {!ativo && total === 0 && confirmandoExclusaoId !== local.id && (
+                          <button
+                            type="button"
+                            disabled={alterandoId === local.id}
+                            onClick={() => setConfirmandoExclusaoId(local.id)}
+                            className="ml-4 font-semibold text-red-600 disabled:text-epi-muted"
+                          >
+                            Excluir
+                          </button>
+                        )}
+                        {confirmandoExclusaoId === local.id && (
+                          <span className="ml-4 text-sm">
+                            <span className="text-epi-ink">Excluir de vez?</span>{" "}
+                            <button
+                              type="button"
+                              disabled={alterandoId === local.id}
+                              onClick={() => excluir(local)}
+                              className="font-semibold text-red-600"
+                            >
+                              Sim
+                            </button>{" "}
+                            <button
+                              type="button"
+                              onClick={() => setConfirmandoExclusaoId("")}
+                              className="font-semibold text-epi-ink"
+                            >
+                              Não
+                            </button>
+                          </span>
+                        )}
                       </td>
                     )}
                   </tr>
@@ -174,7 +239,8 @@ export default function LocaisEstoque() {
       </div>
 
       <p className="mt-3 max-w-[1060px] text-xs text-epi-muted">
-        Para inativar um local que ainda tem EPIs, use{" "}
+        Só é possível excluir local <b>inativo</b>, <b>sem estoque</b> e que <b>nunca foi usado</b> (local cadastrado
+        por engano). Local com histórico fica inativo. Para inativar um local que ainda tem EPIs, use{" "}
         <Link to="/estoque/transferencia" className="font-semibold text-epi-brand">
           Transferir
         </Link>{" "}
