@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
 
+// Serve para criar (/estoque/locais/novo) e, desde a EPI-326, também para
+// editar (/estoque/locais/:id/editar) um local de estoque.
 export default function NovoLocalEstoque() {
   const navigate = useNavigate();
+  const { id: localId } = useParams();
+  const editando = Boolean(localId);
   const { usuario } = useAuth();
   const [nome, setNome] = useState("");
   const [codigo, setCodigo] = useState("");
@@ -17,6 +21,35 @@ export default function NovoLocalEstoque() {
   const [funcionarios, setFuncionarios] = useState([]);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
+  const [carregandoLocal, setCarregandoLocal] = useState(editando);
+
+  // Modo edição: preenche o formulário com os dados atuais do local.
+  useEffect(() => {
+    if (!editando) return undefined;
+    let ativo = true;
+    supabase
+      .from("locais_estoque")
+      .select("nome, codigo, obra_id, responsavel_id, permite_transferencia, status")
+      .eq("id", localId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!ativo) return;
+        if (error || !data) {
+          setErro("Local não encontrado.");
+        } else {
+          setNome(data.nome ?? "");
+          setCodigo(data.codigo ?? "");
+          setObraId(data.obra_id ?? "");
+          setResponsavelId(data.responsavel_id ?? "");
+          setPermiteTransferencia(data.permite_transferencia ? "Sim" : "Não");
+          setStatus(data.status ?? "ativo");
+        }
+        setCarregandoLocal(false);
+      });
+    return () => {
+      ativo = false;
+    };
+  }, [editando, localId]);
 
   useEffect(() => {
     let ativo = true;
@@ -44,15 +77,18 @@ export default function NovoLocalEstoque() {
     setErro("");
     setLoading(true);
 
-    const { error } = await supabase.from("locais_estoque").insert({
-      empresa_id: usuario.empresa_id,
+    const dados = {
       nome: nome.trim(),
       codigo: codigo.trim() || null,
       obra_id: obraId || null,
       responsavel_id: responsavelId || null,
       permite_transferencia: permiteTransferencia === "Sim",
       status,
-    });
+    };
+
+    const { error } = editando
+      ? await supabase.from("locais_estoque").update(dados).eq("id", localId)
+      : await supabase.from("locais_estoque").insert({ ...dados, empresa_id: usuario.empresa_id });
 
     setLoading(false);
 
@@ -60,20 +96,24 @@ export default function NovoLocalEstoque() {
       setErro(
         error.code === "23505"
           ? "Já existe um local com esse código."
-          : error.message || "Não foi possível cadastrar o local."
+          : error.message || "Não foi possível salvar o local."
       );
       return;
     }
 
-    navigate("/estoque");
+    navigate("/estoque/locais");
   }
 
   return (
     <AppShell title="Controle de Equipamentos de Proteção Individual" activeSection="Estoque">
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-epi-ink">Cadastro de local de estoque</h2>
+        <h2 className="text-xl font-semibold text-epi-ink">
+          {editando ? "Editar local de estoque" : "Cadastro de local de estoque"}
+        </h2>
         <p className="mt-1 text-sm text-epi-muted">Locais físicos usados para saldo e movimentação dos EPIs.</p>
       </div>
+
+      {carregandoLocal && <p className="mb-4 text-sm text-epi-muted">Carregando local...</p>}
 
       <form onSubmit={handleSubmit} className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-8">
         <div className="grid grid-cols-1 gap-x-8 gap-y-6 md:grid-cols-2">
@@ -164,14 +204,14 @@ export default function NovoLocalEstoque() {
         <div className="mt-8 flex items-center justify-between border-t border-epi-border pt-6">
           <button
             type="button"
-            onClick={() => navigate("/estoque")}
+            onClick={() => navigate("/estoque/locais")}
             className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || carregandoLocal}
             className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
           >
             {loading ? "Salvando..." : "Salvar local"}

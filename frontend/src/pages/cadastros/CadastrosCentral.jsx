@@ -8,7 +8,7 @@ import AppShell from "../../layouts/AppShell.jsx";
 // EPI-323 (31/10/2026): saiu daqui tudo o que já tem caminho pelo menu
 // lateral, para cada cadastro ter um caminho só:
 //   - Funcionários, EPIs e CAs, Obras -> menus próprios (lista + novo);
-//   - Locais de estoque               -> menu Estoque (botão "Novo local");
+//   - Locais de estoque               -> menu Estoque (botão "Locais de estoque");
 //   - Matriz EPI x Função             -> menu EPIs e CAs (botão "Matriz EPI x Função").
 // Fica aqui só o que não tem outro caminho. Diverge do protótipo 09.01 do
 // Figma, que precisa ser atualizado.
