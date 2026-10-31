@@ -51,10 +51,10 @@ export default function EstoquePorLocal() {
     <AppShell title="Estoque" subtitle="Consulte o saldo disponível por EPI e por local." activeSection="Estoque">
       <div className="mb-6 flex items-center justify-between">
         <Link
-          to="/estoque/locais/novo"
+          to="/estoque/locais"
           className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
         >
-          + Novo local
+          Locais de estoque
         </Link>
         <div className="flex gap-3">
           <Link

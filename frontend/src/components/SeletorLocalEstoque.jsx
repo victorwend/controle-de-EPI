@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 // Caixa "De qual estoque?" usada nas telas de entrega e troca/devolução (EPI-325).
 export default function SeletorLocalEstoque({ locais, value, onChange, rotulo, disabled = false, carregandoSaldo = false }) {
   return (
@@ -18,7 +20,10 @@ export default function SeletorLocalEstoque({ locais, value, onChange, rotulo, d
         </select>
       </label>
       <p className="pb-3 text-xs text-epi-muted">
-        {carregandoSaldo ? "Atualizando saldos..." : "Os saldos mostrados são deste local."}
+        {carregandoSaldo ? "Atualizando saldos..." : "Os saldos mostrados são deste local."}{" "}
+        <Link to="/estoque/locais" className="font-semibold text-epi-brand">
+          Gerenciar locais
+        </Link>
       </p>
     </div>
   );
