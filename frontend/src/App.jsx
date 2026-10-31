@@ -13,6 +13,7 @@ import ObraDetalhe from "./pages/obras/ObraDetalhe.jsx";
 import NovaObra from "./pages/obras/NovaObra.jsx";
 import FuncionariosLista from "./pages/funcionarios/FuncionariosLista.jsx";
 import NovoFuncionario from "./pages/funcionarios/NovoFuncionario.jsx";
+import ImportarFuncionarios from "./pages/funcionarios/ImportarFuncionarios.jsx";
 import FichaFuncionario from "./pages/funcionarios/FichaFuncionario.jsx";
 import HistoricoCompleto from "./pages/funcionarios/HistoricoCompleto.jsx";
 import EpisLista from "./pages/epis/EpisLista.jsx";
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="/obras/:slug" element={<ObraDetalhe />} />
             <Route path="/funcionarios" element={<FuncionariosLista />} />
             <Route path="/funcionarios/novo" element={<NovoFuncionario />} />
+            <Route path="/funcionarios/importar" element={<ImportarFuncionarios />} />
             <Route path="/funcionarios/:matricula" element={<FichaFuncionario />} />
             <Route path="/funcionarios/:matricula/historico" element={<HistoricoCompleto />} />
             <Route path="/funcionarios/:matricula/ficha-epi" element={<FichaEpiIndividual />} />
