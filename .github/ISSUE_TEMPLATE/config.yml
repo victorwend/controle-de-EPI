@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Planejamento e documentação
+    url: https://app.notion.com/p/3d305e2546da81f3a102d5441ac3c9a6
+    about: Consulte o plano e o backlog antes de abrir uma issue.
