@@ -4,6 +4,17 @@ import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
 import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { imprimirHtml, montarTermoIndividual } from "../../lib/termoRecebimento";
+
+// EPI-273: enquanto a biometria não for real (RN-062), a entrega é concluída
+// pelo BOTÃO DE CONFIRMAÇÃO do responsável (decisão do Victor, 31/10/2026).
+// O banco grava quem confirmou e quando. O termo impresso é opcional.
+// A tela de biometria simulada fica desligada; para religar quando houver
+// leitor real, mude para true, envie "biometria" como método e habilite-o
+// no banco (ver supabase/14_metodo_aceite.sql).
+const BIOMETRIA_ATIVA = false;
+const METODO_ACEITE = "confirmacao_responsavel";
 import { MATRIZ_POR_FUNCAO } from "../../data/episConfig.js";
 
 // Wizard de entrega individual (03.02 → 03.03 → 03.04), com a confirmação biométrica
@@ -13,6 +24,8 @@ import { MATRIZ_POR_FUNCAO } from "../../data/episConfig.js";
 // dela é persistido; só o resultado final (entrega + itens + baixa) vai para o banco.
 export default function NovaEntrega() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
+  const [empresaNome, setEmpresaNome] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [funcionarios, setFuncionarios] = useState([]);
   const [epis, setEpis] = useState([]);
@@ -30,7 +43,6 @@ export default function NovaEntrega() {
   const [buscaEpi, setBuscaEpi] = useState("");
   const [observacao, setObservacao] = useState("");
 
-  const [aceite, setAceite] = useState(false);
   const [bioStep, setBioStep] = useState("aguardando");
   const [bioTentativas, setBioTentativas] = useState(0);
   const [comprovante, setComprovante] = useState("");
@@ -41,19 +53,21 @@ export default function NovaEntrega() {
     let ativo = true;
 
     async function carregar() {
-      const [{ data: funcionariosData }, { data: episData }] = await Promise.all([
+      const [{ data: funcionariosData }, { data: episData }, { data: empresaData }] = await Promise.all([
         supabase
           .from("funcionarios")
           .select("id, matricula, nome, funcao, biometria_cadastrada, obras(nome)")
           .eq("status", "ativo")
           .order("nome"),
         supabase.from("epis").select("id, nome, ca, estoque_minimo").order("nome"),
+        supabase.from("empresas").select("razao_social").limit(1),
       ]);
 
       if (!ativo) return;
 
       setFuncionarios(funcionariosData ?? []);
       setEpis(episData ?? []);
+      setEmpresaNome(empresaData?.[0]?.razao_social ?? "");
 
       setCarregando(false);
     }
@@ -139,6 +153,29 @@ export default function NovaEntrega() {
     else setBioStep("confirmada");
   }
 
+  function imprimirTermo(comprovanteGerado) {
+    setErro("");
+    try {
+      imprimirHtml(
+        montarTermoIndividual({
+          empresa: empresaNome,
+          funcionario: {
+            nome: funcionario.nome,
+            matricula: funcionario.matricula,
+            funcao: funcionario.funcao,
+            obra: funcionario.obras?.nome,
+          },
+          local: localPadrao?.nome,
+          itens,
+          comprovante: comprovanteGerado,
+          responsavel: usuario?.nome_completo,
+        })
+      );
+    } catch (falha) {
+      setErro(falha.message);
+    }
+  }
+
   async function concluirEntrega() {
     setErro("");
     setEnviando(true);
@@ -148,6 +185,7 @@ export default function NovaEntrega() {
       p_local_id: localPadrao.id,
       p_itens: itens.map((item) => ({ epi_id: item.epiId, quantidade: item.qtd })),
       p_observacao: observacao.trim() || null,
+      p_aceite_metodo: METODO_ACEITE,
     });
 
     setEnviando(false);
@@ -157,7 +195,6 @@ export default function NovaEntrega() {
       return;
     }
 
-    setAceite(true);
     setComprovante(data);
     setStep("concluida");
   }
@@ -169,7 +206,6 @@ export default function NovaEntrega() {
     setItens([]);
     setBuscaEpi("");
     setObservacao("");
-    setAceite(false);
     setBioStep("aguardando");
     setBioTentativas(0);
     setComprovante("");
@@ -482,14 +518,18 @@ export default function NovaEntrega() {
             </div>
 
             <div className="mt-6 border-t border-epi-border pt-6">
-              <p className="text-sm font-semibold text-epi-ink">Confirmação do colaborador</p>
-              {aceite ? (
-                <p className="mt-2 inline-block rounded-md bg-[#EBF5F0] px-3 py-1.5 text-sm font-medium text-epi-brand">
-                  ✓ Aceite registrado
-                </p>
-              ) : (
-                <p className="mt-2 text-sm text-epi-muted">Biometria • usar leitor biométrico do posto</p>
-              )}
+              <p className="text-sm font-semibold text-epi-ink">Confirmação da entrega</p>
+              <p className="mt-1 text-sm text-epi-muted">
+                Confira os itens com o colaborador e clique em <b>Confirmar entrega</b>. O sistema registra quem
+                confirmou e quando.
+              </p>
+              <button
+                type="button"
+                onClick={() => imprimirTermo()}
+                className="mt-2 text-sm font-semibold text-epi-brand underline"
+              >
+                Imprimir termo de recebimento (opcional)
+              </button>
             </div>
 
             {erro && (
@@ -504,24 +544,25 @@ export default function NovaEntrega() {
               >
                 ← Voltar
               </button>
-              {aceite ? (
+              <div className="flex gap-3">
+                {BIOMETRIA_ATIVA && (
+                  <button
+                    type="button"
+                    onClick={iniciarBiometria}
+                    className="rounded-lg border border-epi-brand px-4 py-2.5 text-sm font-semibold text-epi-brand"
+                  >
+                    Confirmar com biometria
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={enviando}
                   onClick={concluirEntrega}
-                  className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+                  className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  {enviando ? "Concluindo..." : "Concluir entrega"}
+                  {enviando ? "Confirmando..." : "Confirmar entrega"}
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={iniciarBiometria}
-                  className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-                >
-                  Confirmar com biometria
-                </button>
-              )}
+              </div>
             </div>
           </div>
 
@@ -678,6 +719,7 @@ export default function NovaEntrega() {
               {itens.length} tipos de EPI • {funcionario.obras?.nome ?? "—"} • {new Date().toLocaleDateString("pt-BR")}
             </p>
             <p className="mt-1 text-sm text-epi-muted">Comprovante nº {comprovante}</p>
+            <p className="mt-1 text-sm text-epi-muted">Aceite: confirmado pelo responsável</p>
           </div>
 
           <div className="mt-6 flex justify-center gap-3">
@@ -694,6 +736,13 @@ export default function NovaEntrega() {
               className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
             >
               Nova entrega
+            </button>
+            <button
+              type="button"
+              onClick={() => imprimirTermo(comprovante)}
+              className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink"
+            >
+              Imprimir termo (opcional)
             </button>
             <button
               type="button"

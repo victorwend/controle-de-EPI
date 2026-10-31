@@ -4,6 +4,12 @@ import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
 import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { imprimirHtml, montarListaAssinaturasLote } from "../../lib/termoRecebimento";
+
+// EPI-273: enquanto a biometria não é real, cada entrega é concluída pelo
+// botão de confirmação do responsável. A lista impressa é opcional.
+const METODO_ACEITE = "confirmacao_responsavel";
 import { MATRIZ_POR_FUNCAO, FUNCOES_MATRIZ } from "../../data/episConfig.js";
 
 // Tela 03.07 — Entregas — Em lote. Diferente das outras telas de Entregas, o
@@ -14,6 +20,7 @@ import { MATRIZ_POR_FUNCAO, FUNCOES_MATRIZ } from "../../data/episConfig.js";
 // nada mais é que N entregas independentes com a mesma lista de itens.
 export default function LoteEntrega() {
   const navigate = useNavigate();
+  const { usuario } = useAuth();
   const [carregando, setCarregando] = useState(true);
   const [obras, setObras] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
@@ -74,7 +81,7 @@ export default function LoteEntrega() {
     return matriz
       .map((m) => {
         const epi = epis.find((e) => e.nome === m.epi);
-        return epi ? { epiId: epi.id, nome: epi.nome, quantidade: m.quantidade } : null;
+        return epi ? { epiId: epi.id, nome: epi.nome, ca: epi.ca, quantidade: m.quantidade } : null;
       })
       .filter(Boolean);
   }, [funcao, epis]);
@@ -111,6 +118,7 @@ export default function LoteEntrega() {
       p_local_id: localPadrao.id,
       p_itens: itensSugeridos.map((item) => ({ epi_id: item.epiId, quantidade: item.quantidade })),
       p_observacao: "Entrega em lote",
+      p_aceite_metodo: METODO_ACEITE,
     });
 
     if (error) {
@@ -120,6 +128,25 @@ export default function LoteEntrega() {
     }
 
     setStatus((atual) => ({ ...atual, [funcionarioId]: "confirmado" }));
+  }
+
+  function imprimirListaAssinaturas() {
+    setErroGeral("");
+    const pessoas = Object.keys(status)
+      .map((id) => funcionarios.find((f) => f.id === id))
+      .filter(Boolean);
+    try {
+      imprimirHtml(
+        montarListaAssinaturasLote({
+          local: localPadrao?.nome,
+          itens: itensSugeridos,
+          funcionarios: pessoas,
+          responsavel: usuario?.nome_completo,
+        })
+      );
+    } catch (falha) {
+      setErroGeral(falha.message);
+    }
   }
 
   function marcarFalha(funcionarioId) {
@@ -298,6 +325,19 @@ export default function LoteEntrega() {
       {step === "confirmando" && (
         <div className="max-w-[1060px] space-y-6">
           <div className="rounded-xl border border-epi-border bg-white p-6">
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-epi-paper p-4">
+              <p className="text-sm text-epi-ink">
+                Entregue os itens a cada colaborador e clique em <b>Confirmar entrega</b> ao lado do nome. O sistema
+                registra quem confirmou e quando.
+              </p>
+              <button
+                type="button"
+                onClick={imprimirListaAssinaturas}
+                className="text-sm font-semibold text-epi-brand underline"
+              >
+                Imprimir lista de assinaturas (opcional)
+              </button>
+            </div>
             <div className="space-y-3">
               {Object.keys(status).map((funcionarioId) => {
                 const f = funcionarios.find((fn) => fn.id === funcionarioId);
