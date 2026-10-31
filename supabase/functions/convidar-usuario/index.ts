@@ -81,6 +81,28 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Perfil inválido." }, 400);
     }
 
+    // EPI-272: as obras enviadas precisam ser da empresa de quem convida.
+    // Conferimos ANTES de enviar o convite, para não criar a conta e só
+    // depois descobrir o problema. A service_role ignora o RLS, por isso
+    // essa conferência tem que ser feita aqui no código.
+    const obras: string[] = Array.isArray(obraIds) ? [...new Set(obraIds as string[])] : [];
+
+    if (obras.length > 0) {
+      const { data: obrasDaEmpresa, error: obrasError } = await adminClient
+        .from("obras")
+        .select("id")
+        .eq("empresa_id", callerUsuario.empresa_id)
+        .in("id", obras);
+
+      if (obrasError) {
+        return jsonResponse({ error: "Não foi possível conferir as obras." }, 400);
+      }
+
+      if ((obrasDaEmpresa ?? []).length !== obras.length) {
+        return jsonResponse({ error: "Uma ou mais obras não pertencem à sua empresa." }, 403);
+      }
+    }
+
     const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
       email.trim(),
       redirectTo ? { redirectTo } : undefined
@@ -108,8 +130,8 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: usuarioError.message }, 400);
     }
 
-    if (Array.isArray(obraIds) && obraIds.length > 0) {
-      const linhas = obraIds.map((obraId: string) => ({ usuario_id: novoUsuarioId, obra_id: obraId }));
+    if (obras.length > 0) {
+      const linhas = obras.map((obraId) => ({ usuario_id: novoUsuarioId, obra_id: obraId }));
       await adminClient.from("usuario_obras").insert(linhas);
     }
 
