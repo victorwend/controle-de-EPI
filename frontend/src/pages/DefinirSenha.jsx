@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext.jsx";
+import { senhaForte } from "../lib/validacoes";
+import SenhaRequisitos from "../components/SenhaRequisitos";
 
 // Destino do link de convite/recuperação enviado por e-mail. O cliente
 // Supabase já detecta o token na URL e cria a sessão sozinho (detectSessionInUrl,
@@ -17,8 +19,8 @@ export default function DefinirSenha() {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (senha.length < 6) {
-      setErro("A senha precisa ter pelo menos 6 caracteres.");
+    if (!senhaForte(senha)) {
+      setErro("A senha não atende a todos os requisitos listados abaixo do campo.");
       return;
     }
     if (senha !== confirmarSenha) {
@@ -60,17 +62,20 @@ export default function DefinirSenha() {
           </p>
         ) : (
           <form className="mt-6" onSubmit={handleSubmit}>
-            <label className="block text-[13px] font-semibold text-epi-ink">
-              Senha
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={senha}
-                onChange={(event) => setSenha(event.target.value)}
-                placeholder="Mínimo 6 caracteres"
-                className="mt-2 h-[48px] w-full rounded-[10px] border border-epi-border px-4 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
-              />
-            </label>
+            <div>
+              <label className="block text-[13px] font-semibold text-epi-ink">
+                Senha
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={senha}
+                  onChange={(event) => setSenha(event.target.value)}
+                  placeholder="Crie uma senha forte"
+                  className="mt-2 h-[48px] w-full rounded-[10px] border border-epi-border px-4 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
+                />
+              </label>
+              <SenhaRequisitos senha={senha} />
+            </div>
 
             <label className="mt-4 block text-[13px] font-semibold text-epi-ink">
               Confirmar senha

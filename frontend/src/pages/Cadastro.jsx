@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { cnpjValido, formatarCnpj, limparCnpj, senhaForte } from "../lib/validacoes";
+import SenhaRequisitos from "../components/SenhaRequisitos";
 
 const PLANOS = [
   {
@@ -20,10 +22,6 @@ const PLANOS = [
   },
 ];
 
-function apenasDigitos(valor) {
-  return valor.replace(/\D/g, "");
-}
-
 export default function Cadastro() {
   const navigate = useNavigate();
 
@@ -41,11 +39,11 @@ export default function Cadastro() {
     if (!razaoSocial.trim() || !nomeResponsavel.trim() || !email.trim()) {
       return "Preencha todos os campos obrigatórios.";
     }
-    if (apenasDigitos(cnpj).length !== 14) {
-      return "Informe um CNPJ válido (14 dígitos).";
+    if (!cnpjValido(cnpj)) {
+      return "CNPJ inválido. Confira os números digitados.";
     }
-    if (senha.length < 6) {
-      return "A senha precisa ter pelo menos 6 caracteres.";
+    if (!senhaForte(senha)) {
+      return "A senha não atende a todos os requisitos listados abaixo do campo.";
     }
     if (senha !== confirmarSenha) {
       return "As senhas não coincidem.";
@@ -85,7 +83,7 @@ export default function Cadastro() {
 
     const { error: rpcError } = await supabase.rpc("criar_empresa_com_administrador", {
       p_razao_social: razaoSocial.trim(),
-      p_cnpj: apenasDigitos(cnpj),
+      p_cnpj: limparCnpj(cnpj),
       p_nome_responsavel: nomeResponsavel.trim(),
       p_plano: plano,
     });
@@ -156,7 +154,10 @@ export default function Cadastro() {
                 <input
                   type="text"
                   value={cnpj}
-                  onChange={(event) => setCnpj(event.target.value)}
+                  onChange={(event) => setCnpj(formatarCnpj(event.target.value))}
+                  maxLength={18}
+                  autoCapitalize="characters"
+                  autoComplete="off"
                   placeholder="00.000.000/0001-00"
                   className="mt-2 h-[52px] w-full rounded-[10px] border border-epi-border px-4 text-sm font-normal text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
                 />
@@ -190,17 +191,20 @@ export default function Cadastro() {
                 />
               </label>
 
-              <label className="block text-[13px] font-semibold text-epi-ink">
-                Senha
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={senha}
-                  onChange={(event) => setSenha(event.target.value)}
-                  placeholder="Mínimo 6 caracteres"
-                  className="mt-2 h-[52px] w-full rounded-[10px] border border-epi-border px-4 text-sm font-normal text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
-                />
-              </label>
+              <div>
+                <label className="block text-[13px] font-semibold text-epi-ink">
+                  Senha
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    value={senha}
+                    onChange={(event) => setSenha(event.target.value)}
+                    placeholder="Crie uma senha forte"
+                    className="mt-2 h-[52px] w-full rounded-[10px] border border-epi-border px-4 text-sm font-normal text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
+                  />
+                </label>
+                <SenhaRequisitos senha={senha} />
+              </div>
 
               <label className="block text-[13px] font-semibold text-epi-ink">
                 Confirmar senha
