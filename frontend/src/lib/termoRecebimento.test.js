@@ -16,7 +16,7 @@ test("termo individual traz colaborador, itens, CA e linha de assinatura", () =>
     itens: [{ nome: "Capacete", ca: "12345", qtd: 1 }, { nome: "Luva", ca: "", qtd: 2 }],
     data: new Date(2026, 9, 31, 14, 30),
   });
-  for (const trecho of ["JOAO DA SILVA", "12206", "Capacete", "12345", "Luva", "Assinatura do colaborador", "NR-6", "Almoxarifado Central"]) {
+  for (const trecho of ["JOAO DA SILVA", "12206", "Capacete", "12345", "Luva", "Assinatura do colaborador", "perfeitas condições de uso", "Validade do CA", "Não informada", "Almoxarifado Central"]) {
     assert.ok(html.includes(trecho), `faltou: ${trecho}`);
   }
   assert.ok(html.includes("<td>—</td>"), "CA vazio deve aparecer como —");
@@ -44,4 +44,10 @@ test("rotuloMetodoAceite traduz o método gravado", async () => {
   assert.equal(rotuloMetodoAceite("assinatura_papel"), "Assinatura em papel");
   assert.equal(rotuloMetodoAceite("simulado"), "Não comprovado (simulado)");
   assert.equal(rotuloMetodoAceite(undefined), "—");
+});
+
+test("formatarData mostra a validade do CA sem deslocar o dia", async () => {
+  const { formatarData } = await import("./termoRecebimento.js");
+  assert.equal(formatarData("2027-01-15"), "15/01/2027");
+  assert.equal(formatarData(null), "Não informada");
 });

@@ -43,7 +43,7 @@ export default function LoteEntrega() {
       const [{ data: obrasData }, { data: funcionariosData }, { data: episData }] = await Promise.all([
         supabase.from("obras").select("id, nome").order("nome"),
         supabase.from("funcionarios").select("id, matricula, nome, funcao, obra_id, status").eq("status", "ativo"),
-        supabase.from("epis").select("id, nome, ca").order("nome"),
+        supabase.from("epis").select("id, nome, ca, validade_ca").order("nome"),
       ]);
 
       if (!ativo) return;
@@ -81,7 +81,7 @@ export default function LoteEntrega() {
     return matriz
       .map((m) => {
         const epi = epis.find((e) => e.nome === m.epi);
-        return epi ? { epiId: epi.id, nome: epi.nome, ca: epi.ca, quantidade: m.quantidade } : null;
+        return epi ? { epiId: epi.id, nome: epi.nome, ca: epi.ca, validadeCa: epi.validade_ca, quantidade: m.quantidade } : null;
       })
       .filter(Boolean);
   }, [funcao, epis]);

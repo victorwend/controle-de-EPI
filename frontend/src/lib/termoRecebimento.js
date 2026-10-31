@@ -5,14 +5,15 @@
 // quiser guardar a assinatura do colaborador em papel). As funções que MONTAM o HTML são puras
 // (testadas em termoRecebimento.test.js); só imprimirHtml usa o navegador.
 //
-// ATENÇÃO: o texto da declaração é um modelo. Ele precisa ser validado com
-// a Segurança do Trabalho / RH da Pavidez antes do uso oficial.
+// O texto da declaração (TEXTO_DECLARACAO) é o definido pelo Victor em
+// 31/10/2026. Vale validar com a Segurança do Trabalho / RH antes do piloto.
 
+// Texto definido pelo Victor em 31/10/2026 ("Regras recomendadas para
+// confirmação de entrega de EPI", item 4 — declaração obrigatória de ciência).
 export const TEXTO_DECLARACAO =
-  "Declaro que recebi gratuitamente os Equipamentos de Proteção Individual (EPI) listados abaixo, " +
-  "em perfeito estado, e que fui orientado sobre o uso correto, a guarda e a conservação. " +
-  "Comprometo-me a usá-los apenas para a finalidade a que se destinam, a zelar por eles e a " +
-  "comunicar qualquer dano ou alteração que os torne impróprios para uso, conforme a NR-6.";
+  "Declaro que recebi os Equipamentos de Proteção Individual relacionados neste documento, " +
+  "em perfeitas condições de uso, bem como fui orientado sobre sua utilização, guarda, " +
+  "conservação e limitações, comprometendo-me a utilizá-los conforme as normas de segurança da empresa.";
 
 // Evita que um nome com "<", ">" ou "&" quebre o HTML ou injete código.
 export function escaparHtml(valor) {
@@ -22,6 +23,13 @@ export function escaparHtml(valor) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+export function formatarData(data) {
+  if (!data) return "Não informada";
+  // Datas "aaaa-mm-dd" (sem hora) vêm do banco; evita o fuso deslocar o dia.
+  const d = typeof data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data) ? new Date(`${data}T00:00:00`) : new Date(data);
+  return d.toLocaleDateString("pt-BR");
 }
 
 function formatarDataHora(data) {
@@ -54,7 +62,7 @@ export function montarTermoIndividual({ empresa, funcionario, local, itens, data
   const linhasItens = (itens ?? [])
     .map(
       (item) =>
-        `<tr><td>${escaparHtml(item.nome)}</td><td>${escaparHtml(item.ca || "—")}</td><td>${escaparHtml(item.qtd)}</td></tr>`
+        `<tr><td>${escaparHtml(item.nome)}</td><td>${escaparHtml(item.ca || "—")}</td><td>${escaparHtml(formatarData(item.validadeCa))}</td><td>${escaparHtml(item.qtd)}</td></tr>`
     )
     .join("");
 
@@ -64,14 +72,15 @@ export function montarTermoIndividual({ empresa, funcionario, local, itens, data
     <table class="dados">
       <tr><td><b>Colaborador:</b> ${escaparHtml(funcionario?.nome)}</td><td><b>Matrícula:</b> ${escaparHtml(funcionario?.matricula)}</td></tr>
       <tr><td><b>Função:</b> ${escaparHtml(funcionario?.funcao || "—")}</td><td><b>Obra:</b> ${escaparHtml(funcionario?.obra || "—")}</td></tr>
+      <tr><td><b>Setor:</b> ${escaparHtml(funcionario?.setor || "—")}</td><td></td></tr>
       <tr><td><b>Estoque de origem:</b> ${escaparHtml(local || "—")}</td><td><b>Data:</b> ${escaparHtml(formatarDataHora(data))}</td></tr>
     </table>
     <table>
-      <thead><tr><th>EPI</th><th>CA</th><th>Quantidade</th></tr></thead>
+      <thead><tr><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Quantidade</th></tr></thead>
       <tbody>${linhasItens}</tbody>
     </table>
     <p class="declaracao">${escaparHtml(TEXTO_DECLARACAO)}</p>
-    <div class="assinatura">Assinatura do colaborador</div>
+    <div class="assinatura">Assinatura do colaborador · Data: ____/____/______</div>
     <div class="assinatura">Responsável pela entrega${responsavel ? `: ${escaparHtml(responsavel)}` : ""}</div>
     <p class="rodape">Documento gerado pelo EPI360. Guarde a via assinada junto à ficha de EPI do colaborador.</p>
   `;
@@ -84,13 +93,13 @@ export function montarListaAssinaturasLote({ empresa, local, itens, funcionarios
   const linhasItens = (itens ?? [])
     .map(
       (item) =>
-        `<tr><td>${escaparHtml(item.nome)}</td><td>${escaparHtml(item.ca || "—")}</td><td>${escaparHtml(item.quantidade)}</td></tr>`
+        `<tr><td>${escaparHtml(item.nome)}</td><td>${escaparHtml(item.ca || "—")}</td><td>${escaparHtml(formatarData(item.validadeCa))}</td><td>${escaparHtml(item.quantidade)}</td></tr>`
     )
     .join("");
   const linhasPessoas = (funcionarios ?? [])
     .map(
       (f, i) =>
-        `<tr class="linha-assinatura"><td>${i + 1}</td><td>${escaparHtml(f.nome)}</td><td>${escaparHtml(f.matricula)}</td><td></td></tr>`
+        `<tr class="linha-assinatura"><td>${i + 1}</td><td>${escaparHtml(f.nome)}</td><td>${escaparHtml(f.matricula)}</td><td>${escaparHtml(f.funcao || "—")}</td><td></td></tr>`
     )
     .join("");
 
@@ -99,12 +108,12 @@ export function montarListaAssinaturasLote({ empresa, local, itens, funcionarios
     <p class="sub">${escaparHtml(empresa || "")} · Estoque de origem: ${escaparHtml(local || "—")} · ${escaparHtml(formatarDataHora(data))}</p>
     <p><b>Itens entregues a cada colaborador:</b></p>
     <table>
-      <thead><tr><th>EPI</th><th>CA</th><th>Quantidade por pessoa</th></tr></thead>
+      <thead><tr><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Quantidade por pessoa</th></tr></thead>
       <tbody>${linhasItens}</tbody>
     </table>
     <p class="declaracao">${escaparHtml(TEXTO_DECLARACAO)}</p>
     <table>
-      <thead><tr><th>#</th><th>Colaborador</th><th>Matrícula</th><th style="width:40%">Assinatura</th></tr></thead>
+      <thead><tr><th>#</th><th>Colaborador</th><th>Matrícula</th><th>Função</th><th style="width:35%">Assinatura</th></tr></thead>
       <tbody>${linhasPessoas}</tbody>
     </table>
     <div class="assinatura">Responsável pela entrega${responsavel ? `: ${escaparHtml(responsavel)}` : ""}</div>
