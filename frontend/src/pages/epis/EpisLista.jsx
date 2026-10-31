@@ -8,7 +8,12 @@ import { supabase } from "../../lib/supabaseClient";
 // 60 dias é um default provisório até isso virar campo de configuração real.
 const DIAS_PARA_VENCER = 60;
 
+// EPI-324: a validade do CA é opcional. Sem data, o status é "Sem validade"
+// (e não "Válido"), para ninguém achar que o CA foi conferido.
+const SEM_VALIDADE = "Sem validade";
+
 function calcularStatus(validadeCA) {
+  if (!validadeCA) return SEM_VALIDADE;
   const hoje = new Date();
   const validade = new Date(`${validadeCA}T00:00:00`);
   const diffDias = Math.floor((validade - hoje) / (1000 * 60 * 60 * 24));
@@ -19,6 +24,7 @@ function calcularStatus(validadeCA) {
 }
 
 function formatarData(validadeCA) {
+  if (!validadeCA) return "—";
   return new Date(`${validadeCA}T00:00:00`).toLocaleDateString("pt-BR");
 }
 
@@ -89,6 +95,7 @@ export default function EpisLista() {
           <option value="Válido">Válido</option>
           <option value="A vencer">A vencer</option>
           <option value="Vencido">Vencido</option>
+          <option value={SEM_VALIDADE}>{SEM_VALIDADE}</option>
         </select>
       </div>
 

@@ -30,8 +30,9 @@ export default function NovoEpi() {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    if (!nome.trim() || !ca.trim() || !validadeCA) {
-      setErro("Preencha nome, CA e validade do CA.");
+    // EPI-324: validade do CA ficou opcional (decisão provisória de 31/10/2026).
+    if (!nome.trim() || !ca.trim()) {
+      setErro("Preencha nome e CA.");
       return;
     }
 
@@ -44,7 +45,7 @@ export default function NovoEpi() {
       categoria: categoria.trim() || null,
       ca: ca.trim(),
       fabricante: fabricante.trim() || null,
-      validade_ca: validadeCA,
+      validade_ca: validadeCA || null,
       periodicidade_troca: periodicidade.trim() || null,
       estoque_minimo: estoqueMinimo === "" ? null : Number(estoqueMinimo),
       descricao: descricao.trim() || null,
@@ -121,14 +122,16 @@ export default function NovoEpi() {
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">
-              Validade do CA *
+              Validade do CA
               <input
                 type="date"
-                required
                 value={validadeCA}
                 onChange={(event) => setValidadeCA(event.target.value)}
                 className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
               />
+              <span className="mt-1 block text-xs font-normal text-epi-muted">
+                Opcional por enquanto. Sem a data, o sistema não avisa quando o CA vencer.
+              </span>
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">
