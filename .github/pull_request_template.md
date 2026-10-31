@@ -9,8 +9,8 @@ Descreva o problema e o resultado esperado.
 
 ## Alterações realizadas
 
-- 
-- 
+- Descreva as principais mudanças.
+- Liste impactos relevantes (migração, configuração, dependências), quando aplicável.
 
 ## Como testar
 
