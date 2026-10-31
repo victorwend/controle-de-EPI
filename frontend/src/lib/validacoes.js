@@ -116,3 +116,38 @@ export function avaliarSenha(senha) {
 export function senhaForte(senha) {
   return avaliarSenha(senha).every((regra) => regra.ok);
 }
+
+// ---------------------------------------------------------------------
+// CPF (EPI-319: usado na importação de funcionários)
+// ---------------------------------------------------------------------
+
+export function limparCpf(valor) {
+  return String(valor ?? "").replace(/\D/g, "");
+}
+
+export function formatarCpf(valor) {
+  const cpf = limparCpf(valor).slice(0, 11);
+  let resultado = cpf.slice(0, 3);
+  if (cpf.length > 3) resultado += "." + cpf.slice(3, 6);
+  if (cpf.length > 6) resultado += "." + cpf.slice(6, 9);
+  if (cpf.length > 9) resultado += "-" + cpf.slice(9, 11);
+  return resultado;
+}
+
+// Dígitos verificadores do CPF: módulo 11, com pesos 10..2 (1º dígito)
+// e 11..2 (2º dígito).
+export function cpfValido(valor) {
+  const cpf = limparCpf(valor);
+  if (cpf.length !== 11 || /^(\d)\1+$/.test(cpf)) return false;
+
+  const digito = (base, pesoInicial) => {
+    let soma = 0;
+    for (let i = 0; i < base.length; i += 1) soma += Number(base[i]) * (pesoInicial - i);
+    const resto = soma % 11;
+    return resto < 2 ? 0 : 11 - resto;
+  };
+
+  const d1 = digito(cpf.slice(0, 9), 10);
+  const d2 = digito(cpf.slice(0, 9) + d1, 11);
+  return cpf.endsWith(`${d1}${d2}`);
+}

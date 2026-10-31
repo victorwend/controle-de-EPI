@@ -6,7 +6,9 @@ import assert from "node:assert/strict";
 import {
   avaliarSenha,
   cnpjValido,
+  cpfValido,
   formatarCnpj,
+  formatarCpf,
   limparCnpj,
   senhaForte,
 } from "./validacoes.js";
@@ -77,4 +79,20 @@ test("avaliarSenha diz o que falta", () => {
     .filter((regra) => !regra.ok)
     .map((regra) => regra.id);
   assert.deepEqual(faltando, ["tamanho", "maiuscula", "numero", "especial"]);
+});
+
+// ---------------------------------------------------------------- CPF
+test("cpfValido aceita CPF correto, com ou sem máscara", () => {
+  assert.equal(cpfValido("529.982.247-25"), true);
+  assert.equal(cpfValido("52998224725"), true);
+});
+
+test("cpfValido recusa dígito errado, tamanho errado e repetidos", () => {
+  assert.equal(cpfValido("529.982.247-26"), false);
+  assert.equal(cpfValido("5299822472"), false);
+  assert.equal(cpfValido("111.111.111-11"), false);
+});
+
+test("formatarCpf coloca a máscara", () => {
+  assert.equal(formatarCpf("52998224725"), "529.982.247-25");
 });

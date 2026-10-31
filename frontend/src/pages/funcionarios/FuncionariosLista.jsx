@@ -54,12 +54,20 @@ export default function FuncionariosLista() {
           <h2 className="text-xl font-semibold text-epi-ink">Funcionários</h2>
           <p className="mt-1 text-sm text-epi-muted">Cadastre colaboradores e acompanhe o histórico de EPIs.</p>
         </div>
-        <Link
-          to="/funcionarios/novo"
-          className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-        >
-          + Novo funcionário
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            to="/funcionarios/importar"
+            className="rounded-lg border border-epi-brand px-4 py-2.5 text-sm font-semibold text-epi-brand hover:bg-epi-paper"
+          >
+            Importar planilha
+          </Link>
+          <Link
+            to="/funcionarios/novo"
+            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+          >
+            + Novo funcionário
+          </Link>
+        </div>
       </div>
 
       <div className="mb-4 flex max-w-[1060px] gap-3">
