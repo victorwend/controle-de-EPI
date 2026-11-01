@@ -7,7 +7,7 @@ const ITENS = [
   {
     quantidade: 1,
     epis: { nome: "Capacete", ca: "123", validade_ca: "2027-05-10" },
-    entregas: { funcionario_id: "f1", created_at: "2026-10-01T10:00:00Z", comprovante: "C-1", aceite_metodo: "confirmacao_responsavel", usuarios: { nome_completo: "Victor" } },
+    entregas: { funcionario_id: "f1", created_at: "2026-10-01T10:00:00Z", comprovante: "C-1", aceite_metodo: "confirmacao_responsavel", usuarios: { nome_completo: "Victor" }, obras: { nome: "Obra antiga" } },
   },
   {
     quantidade: 2,
@@ -46,6 +46,10 @@ test("um documento com uma ficha (página) por funcionário", () => {
   // nome com < > não vira HTML
   assert.match(html, /João &lt;Silva&gt;/);
   assert.match(html, /Capacete/);
+  // EPI-339: cada linha mostra a obra em que o EPI foi entregue
+  assert.match(html, /<th>Obra<\/th>/);
+  assert.match(html, /Obra antiga/);
+  assert.match(html, /Sede/);
   assert.match(html, /Confirmado pelo responsável/);
   assert.match(html, /Nenhuma entrega registrada/); // f3
   assert.match(html, /Inativo/); // f2

@@ -102,7 +102,7 @@ export default function FuncionariosLista() {
         const { data, error } = await supabase
           .from("entrega_itens")
           .select(
-            "id, quantidade, epis(nome, ca, validade_ca), entregas!inner(funcionario_id, created_at, comprovante, aceite_metodo, usuarios(nome_completo))"
+            "id, quantidade, epis(nome, ca, validade_ca), entregas!inner(funcionario_id, created_at, comprovante, aceite_metodo, usuarios(nome_completo), obras(nome))"
           )
           .in("entregas.funcionario_id", pedaco);
         if (error) throw error;

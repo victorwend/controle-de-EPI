@@ -1,7 +1,7 @@
 // Fichas de EPI de VÁRIOS funcionários num documento só (EPI-338).
 //
 // Mesmo conteúdo da Ficha individual de EPI (FichaEpiIndividual.jsx,
-// EPI-328): identificação, uma linha por item entregue (data, EPI, CA,
+// EPI-328): identificação, uma linha por item entregue (data, obra (EPI-339), EPI, CA,
 // validade do CA, quantidade, aceite, responsável, comprovante),
 // declaração e assinatura. Cada funcionário começa numa PÁGINA NOVA, então
 // "Salvar como PDF" gera um PDF com todas as fichas.
@@ -55,6 +55,7 @@ function montarUmaFicha({ empresa, funcionario, itens, geradoEm }) {
     .map(
       (item) => `<tr>
         <td>${escaparHtml(data(item.entregas.created_at))}</td>
+        <td>${escaparHtml(item.entregas.obras?.nome ?? "Sede")}</td>
         <td>${escaparHtml(item.epis?.nome ?? "—")}</td>
         <td>${escaparHtml(item.epis?.ca || "—")}</td>
         <td>${escaparHtml(formatarData(item.epis?.validade_ca))}</td>
@@ -70,7 +71,7 @@ function montarUmaFicha({ empresa, funcionario, itens, geradoEm }) {
     itens.length === 0
       ? `<p class="vazio">Nenhuma entrega registrada.</p>`
       : `<table class="itens">
-          <thead><tr><th>Data</th><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Qtd.</th><th>Aceite</th><th>Responsável</th><th>Comprovante</th></tr></thead>
+          <thead><tr><th>Data</th><th>Obra</th><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Qtd.</th><th>Aceite</th><th>Responsável</th><th>Comprovante</th></tr></thead>
           <tbody>${linhas}</tbody>
         </table>`;
 
