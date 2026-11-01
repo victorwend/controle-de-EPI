@@ -28,7 +28,11 @@ export function AuthProvider({ children }) {
 
     const { data } = await supabase
       .from("usuarios")
-      .select("id, empresa_id, nome_completo, perfil, status, trocar_senha")
+      // "*" (todas as colunas do PRÓPRIO usuário) em vez de uma lista fixa:
+      // se o código chegar antes da correção SQL que cria uma coluna nova
+      // (ex.: trocar_senha, correção 22), a consulta não quebra e o menu
+      // não some. A coluna que ainda não existe só vem vazia.
+      .select("*")
       .eq("id", sessionAtual.user.id)
       .maybeSingle();
 
