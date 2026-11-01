@@ -6,11 +6,16 @@ import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
 import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
 import SePuder from "../../components/SePuder.jsx";
+import { DESTINOS_BAIXA } from "../../lib/entregas.js";
 
 // Tela 03.08 — Entregas — Troca e devolução. O Figma não desenha um seletor de
 // funcionário nesta tela — como ela só é alcançável pelo botão "Troca /
 // devolução" da lista geral (03.01), sem contexto de funcionário, mantemos o
 // passo de busca adicionado nas sessões anteriores.
+//
+// EPI-340: destino "Perda / extravio" (o EPI sai da posse e não volta ao
+// estoque) e funcionários DESLIGADOS que ainda têm EPI também aparecem na
+// busca, só para DEVOLUÇÃO (troca é uma entrega nova, e inativo não recebe).
 export default function TrocaDevolucao() {
   const navigate = useNavigate();
   // EPI-325: local de estoque escolhido na tela (antes era fixo no "Almoxarifado Central").
@@ -34,16 +39,16 @@ export default function TrocaDevolucao() {
 
   useEffect(() => {
     let ativo = true;
-    supabase
-      .from("funcionarios")
-      .select("id, matricula, nome, funcao, obras(nome)")
-      .eq("status", "ativo")
-      .order("nome")
-      .then(({ data: funcionariosData }) => {
-        if (!ativo) return;
-        setFuncionarios(funcionariosData ?? []);
-        setCarregando(false);
-      });
+    Promise.all([
+      supabase.from("funcionarios").select("id, matricula, nome, funcao, status, obras(nome)").order("nome"),
+      supabase.from("posse_epi_funcionario").select("funcionario_id").gt("quantidade", 0),
+    ]).then(([{ data: funcionariosData }, { data: posseData }]) => {
+      if (!ativo) return;
+      const comPosse = new Set((posseData ?? []).map((linha) => linha.funcionario_id));
+      // Ativos, e inativos que ainda estão com algum EPI.
+      setFuncionarios((funcionariosData ?? []).filter((f) => f.status === "ativo" || comPosse.has(f.id)));
+      setCarregando(false);
+    });
     return () => {
       ativo = false;
     };
@@ -56,6 +61,7 @@ export default function TrocaDevolucao() {
   }, [busca, funcionarios]);
 
   const itensSelecionados = posse.filter((item) => selecionados[item.epi_id]);
+  const desligado = funcionario && funcionario.status !== "ativo";
 
   async function selecionarFuncionario(f) {
     setFuncionario(f);
@@ -74,7 +80,7 @@ export default function TrocaDevolucao() {
 
   function alternarItem(epiId) {
     setSelecionados((atual) => ({ ...atual, [epiId]: !atual[epiId] }));
-    setAcoes((atual) => ({ ...atual, [epiId]: atual[epiId] ?? "troca" }));
+    setAcoes((atual) => ({ ...atual, [epiId]: atual[epiId] ?? (desligado ? "devolucao" : "troca") }));
     setDestinos((atual) => ({ ...atual, [epiId]: atual[epiId] ?? "estoque" }));
   }
 
@@ -96,7 +102,7 @@ export default function TrocaDevolucao() {
       p_itens: itensSelecionados.map((item) => ({
         epi_id: item.epi_id,
         quantidade: item.quantidade,
-        acao: acoes[item.epi_id] ?? "troca",
+        acao: desligado ? "devolucao" : acoes[item.epi_id] ?? "troca",
         destino: destinos[item.epi_id] ?? "estoque",
       })),
     });
@@ -173,6 +179,7 @@ export default function TrocaDevolucao() {
                     className="block w-full px-3 py-2 text-left text-sm text-epi-ink hover:bg-epi-paper"
                   >
                     {f.nome} • Matrícula {f.matricula} • {f.obras?.nome ?? "—"}
+                    {f.status !== "ativo" && " • DESLIGADO (só devolução)"}
                   </button>
                 ))}
               </div>
@@ -214,6 +221,12 @@ export default function TrocaDevolucao() {
           </div>
 
           <h3 className="mt-6 text-sm font-semibold text-epi-ink">EPIs em posse do funcionário</h3>
+          {desligado && (
+            <p className="mt-2 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Funcionário <b>desligado</b>: registre a <b>devolução</b> do que ficou com ele (estoque, descarte ou perda).
+              Troca não é permitida, porque entrega uma unidade nova.
+            </p>
+          )}
 
           {posse.length === 0 ? (
             <p className="mt-3 rounded-lg bg-epi-paper px-4 py-3 text-sm text-epi-muted">
@@ -249,11 +262,11 @@ export default function TrocaDevolucao() {
                       <td className="px-4 py-3">
                         <select
                           disabled={!selecionados[item.epi_id]}
-                          value={acoes[item.epi_id] ?? "troca"}
+                          value={desligado ? "devolucao" : acoes[item.epi_id] ?? "troca"}
                           onChange={(event) => setAcoes((atual) => ({ ...atual, [item.epi_id]: event.target.value }))}
                           className="h-9 rounded-lg border border-epi-border px-2 text-sm text-epi-ink disabled:opacity-40"
                         >
-                          <option value="troca">Trocar</option>
+                          {!desligado && <option value="troca">Trocar</option>}
                           <option value="devolucao">Devolver</option>
                         </select>
                       </td>
@@ -264,8 +277,11 @@ export default function TrocaDevolucao() {
                           onChange={(event) => setDestinos((atual) => ({ ...atual, [item.epi_id]: event.target.value }))}
                           className="h-9 rounded-lg border border-epi-border px-2 text-sm text-epi-ink disabled:opacity-40"
                         >
-                          <option value="estoque">Estoque</option>
-                          <option value="descarte">Descarte</option>
+                          {DESTINOS_BAIXA.map((opcao) => (
+                            <option key={opcao.valor} value={opcao.valor}>
+                              {opcao.label}
+                            </option>
+                          ))}
                         </select>
                       </td>
                     </tr>

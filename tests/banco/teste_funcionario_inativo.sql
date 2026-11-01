@@ -95,7 +95,7 @@ begin
   begin
     update funcionarios set status = 'inativo' where id = v_func;
     perform registrar_entrega(v_func, v_local,
-      jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel');
+      jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel', 'admissao');
     v_resultado := 'FALHOU - entregou para funcionário inativo';
     raise exception using errcode = 'ZZ001';
   exception

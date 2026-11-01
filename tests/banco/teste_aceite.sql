@@ -43,7 +43,7 @@ begin
 
   -- TESTE 1: entrega com "confirmação do responsável" grava esse método
   begin
-    execute 'select registrar_entrega($1, $2, $3, null, $4)'
+    execute 'select registrar_entrega($1, $2, $3, null, $4, ''admissao'')'
       into v_comprovante using v_func, v_local, v_itens, 'confirmacao_responsavel';
     select aceite_metodo into v_metodo from entregas where comprovante = v_comprovante;
     v_resultado := case when v_metodo = 'confirmacao_responsavel' then 'OK - gravou confirmacao_responsavel'
@@ -68,7 +68,7 @@ begin
 
   -- TESTE 3: método "biometria" enquanto ela não está ativa -> recusar ---
   begin
-    execute 'select registrar_entrega($1, $2, $3, null, $4)'
+    execute 'select registrar_entrega($1, $2, $3, null, $4, ''admissao'')'
       into v_comprovante using v_func, v_local, v_itens, 'biometria';
     v_resultado := 'FALHOU - aceitou biometria simulada';
     raise exception using errcode = 'ZZ001';
@@ -82,7 +82,7 @@ begin
 
   -- TESTE 4: entrega para funcionário INATIVO -> recusar (RN-044) -------
   begin
-    execute 'select registrar_entrega($1, $2, $3, null, $4)'
+    execute 'select registrar_entrega($1, $2, $3, null, $4, ''admissao'')'
       into v_comprovante using v_func_inat, v_local, v_itens, 'confirmacao_responsavel';
     v_resultado := 'FALHOU - entregou para funcionário inativo';
     raise exception using errcode = 'ZZ001';

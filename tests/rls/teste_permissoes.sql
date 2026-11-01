@@ -107,7 +107,7 @@ begin
   -- TESTE 5: almoxarife registra entrega PELA FUNÇÃO (deve funcionar) -
   begin
     select saldo into v_antes from saldo_estoque where epi_id = v_epi and local_id = v_local;
-    perform registrar_entrega(v_func, v_local, jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 2)), null, 'confirmacao_responsavel');
+    perform registrar_entrega(v_func, v_local, jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 2)), null, 'confirmacao_responsavel', 'admissao');
     select saldo into v_saldo from saldo_estoque where epi_id = v_epi and local_id = v_local;
     if v_saldo = v_antes - 2 then
       v_relatorio := v_relatorio || E'\nTESTE 5 (almoxarife registra entrega pela função): OK - saldo diminuiu 2';
@@ -123,7 +123,7 @@ begin
   update usuarios set perfil = 'gestor' where id = v_usuario;
   execute 'set local role authenticated';
   begin
-    perform registrar_entrega(v_func, v_local, jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel');
+    perform registrar_entrega(v_func, v_local, jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel', 'admissao');
     v_relatorio := v_relatorio || E'\nTESTE 6 (gestor registra entrega): FALHOU - o banco aceitou';
   exception when insufficient_privilege then
     v_relatorio := v_relatorio || E'\nTESTE 6 (gestor registra entrega): OK - o banco recusou';

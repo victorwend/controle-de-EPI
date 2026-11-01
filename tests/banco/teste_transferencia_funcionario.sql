@@ -53,7 +53,7 @@ begin
 
   -- Entrega ANTES da transferência (obra 1)
   perform registrar_entrega(v_func, v_local,
-    jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel');
+    jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel', 'admissao');
 
   -- TESTE 1: admin transfere para a obra 2 ------------------------------
   begin
@@ -70,7 +70,7 @@ begin
 
   -- Entrega DEPOIS da transferência (obra 2)
   perform registrar_entrega(v_func, v_local,
-    jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 2)), null, 'confirmacao_responsavel');
+    jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 2)), null, 'confirmacao_responsavel', 'admissao');
 
   -- TESTE 2: cada entrega guarda a obra em que foi feita ----------------
   begin
