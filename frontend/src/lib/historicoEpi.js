@@ -94,3 +94,22 @@ export function agruparTrocasPorFuncionario(trocas) {
   for (const troca of trocas ?? []) (grupos[troca.funcionario_id] ??= []).push(troca);
   return grupos;
 }
+
+// Histórico de VÁRIOS funcionários numa lista só (EPI-345: aba Entregas →
+// marcar funcionários → "Consultar entregas"). Cada linha leva o
+// funcionário; tudo do mais recente para o mais antigo.
+export function montarHistoricoDeVarios(funcionarios, itensPorFuncionario = {}, trocasPorFuncionario = {}) {
+  const linhas = [];
+  for (const funcionario of funcionarios ?? []) {
+    for (const linha of montarHistorico(itensPorFuncionario[funcionario.id], trocasPorFuncionario[funcionario.id])) {
+      linhas.push({
+        ...linha,
+        id: `${funcionario.id}-${linha.id}`,
+        funcionarioId: funcionario.id,
+        funcionarioNome: funcionario.nome,
+        funcionarioMatricula: funcionario.matricula,
+      });
+    }
+  }
+  return linhas.sort((a, b) => new Date(b.data) - new Date(a.data));
+}

@@ -121,3 +121,14 @@ export function filtrarEntregas(linhas, { busca = "", obraId = "", funcionarioId
     })
     .sort((a, b) => new Date(b.entregas?.created_at ?? 0) - new Date(a.entregas?.created_at ?? 0));
 }
+
+// Funcionários (sem repetir) que aparecem nas linhas de entrega visíveis —
+// usado pela caixinha "marcar todos" da aba Entregas (EPI-345).
+export function funcionariosDasEntregas(linhas) {
+  const vistos = new Map();
+  for (const linha of linhas ?? []) {
+    const id = linha.entregas?.funcionario_id;
+    if (id && !vistos.has(id)) vistos.set(id, { id, nome: linha.entregas?.funcionarios?.nome ?? "" });
+  }
+  return [...vistos.values()];
+}

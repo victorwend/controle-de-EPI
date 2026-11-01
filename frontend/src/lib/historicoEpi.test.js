@@ -56,3 +56,21 @@ test("agrupa trocas por funcionário", () => {
   assert.equal(grupos.f1.length, 2);
   assert.equal(grupos.f2.length, 1);
 });
+
+test("EPI-345: histórico de vários funcionários, com o nome de cada um", async () => {
+  const { montarHistoricoDeVarios } = await import("./historicoEpi.js");
+  const funcionarios = [
+    { id: "f1", nome: "Ana", matricula: "1" },
+    { id: "f2", nome: "Bruno", matricula: "2" },
+    { id: "f3", nome: "Caio", matricula: "3" },
+  ];
+  const itens = { f1: ENTREGAS };
+  const trocas = { f1: TROCAS.filter((t) => t.funcionario_id === "f1"), f2: TROCAS.filter((t) => t.funcionario_id === "f2") };
+  const linhas = montarHistoricoDeVarios(funcionarios, itens, trocas);
+  assert.equal(linhas.length, 4); // f1: 1 entrega + 2 trocas/baixas; f2: 1 devolução; f3: nada
+  assert.deepEqual(
+    linhas.map((l) => `${l.funcionarioNome}:${l.categoria}`),
+    ["Ana:baixa", "Bruno:devolucao", "Ana:troca", "Ana:entrega"]
+  );
+  assert.equal(new Set(linhas.map((l) => l.id)).size, 4);
+});

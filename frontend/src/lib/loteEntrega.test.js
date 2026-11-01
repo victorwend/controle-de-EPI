@@ -105,3 +105,16 @@ test("consulta de entregas: só dos funcionários escolhidos, mais recente prime
   assert.deepEqual(filtrarEntregas(linhas, { obraId: "o2" }).map((l) => l.id), [3, 2]);
   assert.deepEqual(filtrarEntregas(linhas, { busca: "bota" }).map((l) => l.id), [2]);
 });
+
+test("EPI-345: funcionários das entregas visíveis, sem repetir", async () => {
+  const { funcionariosDasEntregas } = await import("./loteEntrega.js");
+  const linhas = [
+    { entregas: { funcionario_id: "a", funcionarios: { nome: "Ana" } } },
+    { entregas: { funcionario_id: "b", funcionarios: { nome: "Bruno" } } },
+    { entregas: { funcionario_id: "a", funcionarios: { nome: "Ana" } } },
+  ];
+  assert.deepEqual(funcionariosDasEntregas(linhas), [
+    { id: "a", nome: "Ana" },
+    { id: "b", nome: "Bruno" },
+  ]);
+});
