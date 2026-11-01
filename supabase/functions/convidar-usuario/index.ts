@@ -28,6 +28,13 @@ function jsonResponse(body: unknown, status = 200) {
 // EPI-329: o perfil "operador" saiu do sistema (correção 17).
 const PERFIS_VALIDOS = ["administrador", "almoxarife", "tecnico_seguranca", "gestor"];
 
+// EPI-335: mesma regra de senha forte do frontend (lib/validacoes.js).
+function senhaForte(senha: string) {
+  return (
+    senha.length >= 8 && /[a-z]/.test(senha) && /[A-Z]/.test(senha) && /[0-9]/.test(senha) && /[^A-Za-z0-9]/.test(senha)
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
@@ -73,7 +80,9 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Só o Administrador pode convidar novos usuários." }, 403);
     }
 
-    const { nome, email, perfil, obraIds, redirectTo } = await req.json();
+    // modo: "convite" (e-mail para a pessoa criar a senha, como antes) ou
+    // "senha_temporaria" (EPI-335: o administrador define a senha agora).
+    const { nome, email, perfil, obraIds, redirectTo, modo = "convite", senhaTemporaria } = await req.json();
 
     if (!nome?.trim() || !email?.trim() || !perfil) {
       return jsonResponse({ error: "Preencha nome, e-mail e perfil." }, 400);
@@ -81,6 +90,14 @@ Deno.serve(async (req) => {
 
     if (!PERFIS_VALIDOS.includes(perfil)) {
       return jsonResponse({ error: "Perfil inválido." }, 400);
+    }
+
+    const comSenhaTemporaria = modo === "senha_temporaria";
+    if (comSenhaTemporaria && !senhaForte(String(senhaTemporaria ?? ""))) {
+      return jsonResponse(
+        { error: "A senha temporária precisa ter 8 caracteres, maiúscula, minúscula, número e caractere especial." },
+        400
+      );
     }
 
     // EPI-272: as obras enviadas precisam ser da empresa de quem convida.
@@ -105,16 +122,24 @@ Deno.serve(async (req) => {
       }
     }
 
-    const { data: inviteData, error: inviteError } = await adminClient.auth.admin.inviteUserByEmail(
-      email.trim(),
-      redirectTo ? { redirectTo } : undefined
-    );
+    // Cria a conta: por convite (e-mail) ou já com a senha temporária.
+    const { data: contaData, error: contaError } = comSenhaTemporaria
+      ? await adminClient.auth.admin.createUser({
+          email: email.trim(),
+          password: senhaTemporaria,
+          email_confirm: true, // o administrador já confirmou quem é a pessoa
+          user_metadata: { nome: nome.trim() },
+        })
+      : await adminClient.auth.admin.inviteUserByEmail(email.trim(), redirectTo ? { redirectTo } : undefined);
 
-    if (inviteError || !inviteData?.user) {
-      return jsonResponse({ error: inviteError?.message || "Não foi possível enviar o convite." }, 400);
+    if (contaError || !contaData?.user) {
+      return jsonResponse(
+        { error: contaError?.message || (comSenhaTemporaria ? "Não foi possível criar o usuário." : "Não foi possível enviar o convite.") },
+        400
+      );
     }
 
-    const novoUsuarioId = inviteData.user.id;
+    const novoUsuarioId = contaData.user.id;
 
     const { error: usuarioError } = await adminClient.from("usuarios").insert({
       id: novoUsuarioId,
@@ -122,6 +147,8 @@ Deno.serve(async (req) => {
       nome_completo: nome.trim(),
       email: email.trim(),
       perfil,
+      // EPI-335: com senha temporária, a troca é obrigatória no 1º acesso.
+      trocar_senha: comSenhaTemporaria,
     });
 
     if (usuarioError) {
@@ -137,7 +164,20 @@ Deno.serve(async (req) => {
       await adminClient.from("usuario_obras").insert(linhas);
     }
 
-    return jsonResponse({ ok: true });
+    // EPI-335: com senha temporária, manda também um e-mail para a pessoa
+    // definir a própria senha (é o e-mail de "redefinir senha" do Supabase,
+    // que leva para a tela /definir-senha). Se o e-mail falhar (ex.: limite
+    // de envios do provedor), o usuário continua criado: avisamos a tela.
+    let emailEnviado = true;
+    if (comSenhaTemporaria) {
+      const { error: emailError } = await callerClient.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo ? { redirectTo } : undefined
+      );
+      emailEnviado = !emailError;
+    }
+
+    return jsonResponse({ ok: true, emailEnviado });
   } catch (err) {
     return jsonResponse({ error: err instanceof Error ? err.message : "Erro inesperado." }, 500);
   }

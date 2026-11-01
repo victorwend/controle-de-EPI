@@ -96,3 +96,14 @@ test("cpfValido recusa dígito errado, tamanho errado e repetidos", () => {
 test("formatarCpf coloca a máscara", () => {
   assert.equal(formatarCpf("52998224725"), "529.982.247-25");
 });
+
+test("senha temporária gerada é sempre forte e sem caracteres confusos", async () => {
+  const { gerarSenhaTemporaria } = await import("./validacoes.js");
+  for (let i = 0; i < 200; i += 1) {
+    const senha = gerarSenhaTemporaria();
+    assert.equal(senha.length, 10);
+    assert.equal(senhaForte(senha), true, senha);
+    assert.equal(/[lIO01]/.test(senha), false, senha);
+  }
+  assert.equal(gerarSenhaTemporaria(12).length, 12);
+});
