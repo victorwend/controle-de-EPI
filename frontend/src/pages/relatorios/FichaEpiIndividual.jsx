@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import { formatarData as formatarDataCa, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
+import { formatarData as formatarDataCa, TEXTO_DECLARACAO, formatarDataHora } from "../../lib/termoRecebimento";
 import { montarHistorico, SELECT_ENTREGAS, SELECT_TROCAS } from "../../lib/historicoEpi.js";
-
-function formatarData(dataIso) {
-  return new Date(dataIso).toLocaleDateString("pt-BR");
-}
 
 // Tela 08.02 — Relatórios — Ficha individual de EPI. Documento de impressão/PDF,
 // por isso não usa o AppShell (menu lateral fixo não faz sentido numa folha
@@ -104,7 +100,7 @@ export default function FichaEpiIndividual() {
           <Stat label="Setor" valor={funcionario.setor || "—"} />
           <Stat label="Obra atual" valor={funcionario.obras?.nome ?? "—"} />
           <Stat label="Status" valor={funcionario.status === "ativo" ? "Ativo" : "Inativo"} />
-          <Stat label="Última entrega" valor={ultimaEntrega ? formatarData(ultimaEntrega) : "—"} />
+          <Stat label="Última entrega" valor={ultimaEntrega ? formatarDataHora(ultimaEntrega) : "—"} />
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-lg border border-epi-border">
@@ -117,7 +113,7 @@ export default function FichaEpiIndividual() {
             <table className="mt-3 w-full text-left text-xs">
               <thead className="border-y border-epi-border uppercase text-epi-muted">
                 <tr>
-                  <th className="px-3 py-2">Data</th>
+                  <th className="px-3 py-2">Data e hora</th>
                   <th className="px-3 py-2">Movimentação</th>
                   <th className="px-3 py-2">Obra</th>
                   <th className="px-3 py-2">EPI</th>
@@ -132,7 +128,7 @@ export default function FichaEpiIndividual() {
               <tbody>
                 {historico.map((linha) => (
                   <tr key={linha.id} className="border-b border-epi-border last:border-0">
-                    <td className="px-3 py-2 text-epi-ink">{formatarData(linha.data)}</td>
+                    <td className="px-3 py-2 text-epi-ink">{formatarDataHora(linha.data)}</td>
                     <td className="px-3 py-2 text-epi-ink">
                       <b>{linha.tipo}</b>
                       <span className="block text-epi-muted">{linha.detalhe}</span>

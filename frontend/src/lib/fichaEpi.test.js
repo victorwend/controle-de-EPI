@@ -80,3 +80,18 @@ test("EPI-342: a ficha mostra trocas, devoluções e baixas", () => {
   assert.match(html, /Desligamento: Fim de contrato/);
   assert.match(html, /<b>Entrega<\/b>/);
 });
+
+test("EPI-346: a ficha mostra a hora da movimentação", async () => {
+  const { montarFichasEpi } = await import("./fichaEpi.js");
+  const quando = new Date(2026, 9, 2, 14, 30); // 02/10/2026 14:30 (fuso local)
+  const html = montarFichasEpi({
+    empresa: "Pavidez",
+    funcionarios: [{ id: "f1", nome: "Ana", matricula: "1" }],
+    itensPorFuncionario: {
+      f1: [{ id: 1, quantidade: 1, epis: { nome: "Luva", ca: "9" }, entregas: { funcionario_id: "f1", created_at: quando.toISOString(), motivo: "admissao" } }],
+    },
+    geradoEm: "01/11/2026",
+  });
+  assert.match(html, /02\/10\/2026 14:30/);
+  assert.match(html, /<th>Data e hora<\/th>/);
+});

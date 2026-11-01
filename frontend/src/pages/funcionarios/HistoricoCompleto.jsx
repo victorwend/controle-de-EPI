@@ -3,13 +3,10 @@ import { Link, useParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { filtrarHistorico, FILTROS_HISTORICO, montarHistorico, SELECT_ENTREGAS, SELECT_TROCAS } from "../../lib/historicoEpi.js";
+import { formatarDataHora } from "../../lib/termoRecebimento.js";
 
 // EPI-342: entregas, trocas, devoluções e baixas reais (antes Trocas e
 // Devoluções ficavam vazias).
-
-function formatarData(dataIso) {
-  return new Date(dataIso).toLocaleDateString("pt-BR");
-}
 
 export default function HistoricoCompleto() {
   const { matricula } = useParams();
@@ -114,7 +111,7 @@ export default function HistoricoCompleto() {
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-              <th className="px-4 py-3 font-medium">Data</th>
+              <th className="px-4 py-3 font-medium">Data e hora</th>
               <th className="px-4 py-3 font-medium">Movimentação</th>
               <th className="px-4 py-3 font-medium">EPI / CA</th>
               <th className="px-4 py-3 font-medium">Qtd.</th>
@@ -126,7 +123,7 @@ export default function HistoricoCompleto() {
           <tbody>
             {historicoFiltrado.map((linha) => (
               <tr key={linha.id} className="border-b border-epi-border last:border-0">
-                <td className="px-4 py-3 text-epi-muted">{formatarData(linha.data)}</td>
+                <td className="px-4 py-3 text-epi-muted">{formatarDataHora(linha.data)}</td>
                 <td className="px-4 py-3 text-epi-ink">
                   <span className="font-medium">{linha.tipo}</span>
                   <span className="block text-xs text-epi-muted">{linha.detalhe}</span>

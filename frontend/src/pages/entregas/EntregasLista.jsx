@@ -7,6 +7,7 @@ import { filtrarFuncionarios } from "../../lib/funcionarios.js";
 import { rotuloMotivoEntrega } from "../../lib/entregas.js";
 import { alternarId, alternarTodos, filtrarEntregas, funcionariosDasEntregas, todosMarcados } from "../../lib/loteEntrega.js";
 import { agruparItensPorFuncionario, emPedacos } from "../../lib/fichaEpi.js";
+import { formatarDataHora } from "../../lib/termoRecebimento.js";
 import {
   agruparTrocasPorFuncionario,
   filtrarHistorico,
@@ -30,10 +31,6 @@ import {
 // mostra o HISTÓRICO COMPLETO de movimentações dos marcados: entregas,
 // trocas, devoluções e baixas (mesma montagem da ficha, EPI-342).
 // A consulta pela busca e o clique no nome também abrem esse histórico.
-
-function formatarData(dataIso) {
-  return new Date(dataIso).toLocaleDateString("pt-BR");
-}
 
 export default function EntregasLista() {
   const [busca, setBusca] = useState("");
@@ -262,7 +259,7 @@ export default function EntregasLista() {
                       className="h-4 w-4 accent-epi-brand"
                     />
                   </th>
-                  <th className="px-4 py-3 font-medium">Data</th>
+                  <th className="px-4 py-3 font-medium">Data e hora</th>
                   <th className="px-4 py-3 font-medium">Funcionário</th>
                   <th className="px-4 py-3 font-medium">EPI</th>
                   <th className="px-4 py-3 font-medium">CA</th>
@@ -299,7 +296,7 @@ export default function EntregasLista() {
                           />
                         </td>
                         <td className="px-4 py-3 text-epi-muted">
-                          {linha.entregas?.created_at ? formatarData(linha.entregas.created_at) : "—"}
+                          {linha.entregas?.created_at ? formatarDataHora(linha.entregas.created_at) : "—"}
                         </td>
                         <td className="px-4 py-3">
                           <button
@@ -428,7 +425,7 @@ export default function EntregasLista() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                  <th className="px-4 py-3 font-medium">Data</th>
+                  <th className="px-4 py-3 font-medium">Data e hora</th>
                   {!umSo && <th className="px-4 py-3 font-medium">Funcionário</th>}
                   <th className="px-4 py-3 font-medium">Movimentação</th>
                   <th className="px-4 py-3 font-medium">EPI / CA</th>
@@ -448,7 +445,7 @@ export default function EntregasLista() {
                 {!carregandoHistorico &&
                   historicoFiltrado.map((linha) => (
                     <tr key={linha.id} className="border-b border-epi-border last:border-0">
-                      <td className="px-4 py-3 text-epi-muted">{linha.data ? formatarData(linha.data) : "—"}</td>
+                      <td className="px-4 py-3 text-epi-muted">{linha.data ? formatarDataHora(linha.data) : "—"}</td>
                       {!umSo && <td className="px-4 py-3 font-medium text-epi-ink">{linha.funcionarioNome}</td>}
                       <td className="px-4 py-3 text-epi-ink">
                         <span className="font-medium">{linha.tipo}</span>

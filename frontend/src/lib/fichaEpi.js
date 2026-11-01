@@ -9,7 +9,7 @@
 //
 // As funções que MONTAM o HTML são puras (testadas em fichaEpi.test.js).
 
-import { escaparHtml, formatarData, TEXTO_DECLARACAO } from "./termoRecebimento.js";
+import { escaparHtml, formatarData, formatarDataHora, TEXTO_DECLARACAO } from "./termoRecebimento.js";
 import { montarHistorico } from "./historicoEpi.js";
 
 const ESTILO = `
@@ -33,8 +33,9 @@ const ESTILO = `
   @media print { body { margin: 10mm; } }
 `;
 
+// EPI-346: data e hora da movimentação.
 function data(dataIso) {
-  return dataIso ? new Date(dataIso).toLocaleDateString("pt-BR") : "—";
+  return formatarDataHora(dataIso);
 }
 
 // Junta os itens entregues (entrega_itens com entregas embutidas) por
@@ -77,7 +78,7 @@ function montarUmaFicha({ empresa, funcionario, itens, trocas, geradoEm }) {
     historico.length === 0
       ? `<p class="vazio">Nenhuma entrega registrada.</p>`
       : `<table class="itens">
-          <thead><tr><th>Data</th><th>Movimentação</th><th>Obra</th><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Qtd.</th><th>Aceite / observação</th><th>Responsável</th><th>Comprovante</th></tr></thead>
+          <thead><tr><th>Data e hora</th><th>Movimentação</th><th>Obra</th><th>EPI</th><th>CA</th><th>Validade do CA</th><th>Qtd.</th><th>Aceite / observação</th><th>Responsável</th><th>Comprovante</th></tr></thead>
           <tbody>${linhas}</tbody>
         </table>`;
 

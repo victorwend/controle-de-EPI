@@ -5,7 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
 import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
+import { formatarDataHora, imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
 
 // EPI-273: enquanto a biometria não for real (RN-062), a entrega é concluída
 // pelo BOTÃO DE CONFIRMAÇÃO do responsável (decisão do Victor, 31/10/2026).
@@ -774,7 +774,7 @@ export default function NovaEntrega() {
           <div className="mx-auto mt-6 max-w-[420px] rounded-lg bg-[#EBF5F0] p-5 text-left">
             <p className="font-semibold text-epi-ink">{funcionario.nome}</p>
             <p className="mt-1 text-sm text-epi-muted">
-              {itens.length} tipos de EPI • {funcionario.obras?.nome ?? "—"} • {new Date().toLocaleDateString("pt-BR")}
+              {itens.length} tipos de EPI • {funcionario.obras?.nome ?? "—"} • {formatarDataHora(new Date())}
             </p>
             <p className="mt-1 text-sm text-epi-muted">Comprovante nº {comprovante}</p>
             <p className="mt-1 text-sm text-epi-muted">Aceite: confirmado pelo responsável</p>

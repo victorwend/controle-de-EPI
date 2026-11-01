@@ -3,7 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { formatarData as formatarDia } from "../../lib/termoRecebimento.js";
+import { formatarData as formatarDia, formatarDataHora } from "../../lib/termoRecebimento.js";
 import { hojeIso, MOTIVOS_DESLIGAMENTO, textoMotivo, validarDesligamento } from "../../lib/funcionarios.js";
 import SePuder from "../../components/SePuder.jsx";
 import TransferirFuncionario from "./TransferirFuncionario.jsx";
@@ -15,10 +15,6 @@ import { baixaInicial, baixaParaSalvar, DESTINOS_BAIXA, validarBaixa } from "../
 //
 // EPI-339: o Administrador TRANSFERE o funcionário de obra. O histórico
 // mostra a obra de cada entrega e a lista de transferências.
-
-function formatarData(dataIso) {
-  return new Date(dataIso).toLocaleDateString("pt-BR");
-}
 
 export default function FichaFuncionario() {
   const { matricula } = useParams();
@@ -178,7 +174,7 @@ export default function FichaFuncionario() {
       <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6">
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
           <Stat label="EPIs em posse" valor={totalEmPosse} />
-          <Stat label="Última entrega" valor={ultimaEntrega ? formatarData(ultimaEntrega) : "—"} />
+          <Stat label="Última entrega" valor={ultimaEntrega ? formatarDataHora(ultimaEntrega) : "—"} />
           <Stat label="Pendências" valor={0} />
           <Stat label="Obra" valor={funcionario.obras?.nome ?? "—"} />
           <Stat label="Status" valor={funcionario.status === "ativo" ? "Ativo" : "Inativo"} destaque />
@@ -196,7 +192,7 @@ export default function FichaFuncionario() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                    <th className="py-2 pr-4 font-medium">Data</th>
+                    <th className="py-2 pr-4 font-medium">Data e hora</th>
                     <th className="py-2 pr-4 font-medium">Movimentação</th>
                     <th className="py-2 pr-4 font-medium">EPI</th>
                     <th className="py-2 pr-4 font-medium">Qtd.</th>
@@ -207,7 +203,7 @@ export default function FichaFuncionario() {
                 <tbody>
                   {historico.map((linha) => (
                     <tr key={linha.id} className="border-b border-epi-border text-epi-ink last:border-0">
-                      <td className="py-2.5 pr-4 text-epi-muted">{formatarData(linha.data)}</td>
+                      <td className="py-2.5 pr-4 text-epi-muted">{formatarDataHora(linha.data)}</td>
                       <td className="py-2.5 pr-4">
                         <span className="font-medium">{linha.tipo}</span>
                         <span className="block text-xs text-epi-muted">
@@ -236,9 +232,9 @@ export default function FichaFuncionario() {
         <div className="rounded-xl border border-epi-border bg-white p-6">
           <h3 className="text-sm font-semibold text-epi-ink">Ficha de EPI</h3>
           <p className="mt-3 text-xs uppercase text-epi-muted">Última entrega</p>
-          <p className="text-sm text-epi-ink">{ultimaEntrega ? formatarData(ultimaEntrega) : "—"}</p>
+          <p className="text-sm text-epi-ink">{ultimaEntrega ? formatarDataHora(ultimaEntrega) : "—"}</p>
           <p className="mt-3 text-xs uppercase text-epi-muted">Última movimentação</p>
-          <p className="text-sm text-epi-ink">{ultimaMovimentacao ? formatarData(ultimaMovimentacao) : "—"}</p>
+          <p className="text-sm text-epi-ink">{ultimaMovimentacao ? formatarDataHora(ultimaMovimentacao) : "—"}</p>
           <p className="mt-3 text-xs uppercase text-epi-muted">Alertas</p>
           <p className="text-sm text-epi-muted">Nenhuma pendência encontrada.</p>
           <Link
@@ -256,7 +252,7 @@ export default function FichaFuncionario() {
           <table className="mt-3 w-full text-left text-sm">
             <thead>
               <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                <th className="py-2 pr-4 font-medium">Data</th>
+                <th className="py-2 pr-4 font-medium">Data e hora</th>
                 <th className="py-2 pr-4 font-medium">De</th>
                 <th className="py-2 pr-4 font-medium">Para</th>
                 <th className="py-2 pr-4 font-medium">Motivo</th>

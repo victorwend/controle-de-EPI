@@ -51,3 +51,14 @@ test("formatarData mostra a validade do CA sem deslocar o dia", async () => {
   assert.equal(formatarData("2027-01-15"), "15/01/2027");
   assert.equal(formatarData(null), "Não informada");
 });
+
+test("EPI-346: data e hora da movimentação", async () => {
+  const { formatarDataHora } = await import("./termoRecebimento.js");
+  // 01/11/2026 09:05 no fuso deste computador
+  const local = new Date(2026, 10, 1, 9, 5);
+  assert.equal(formatarDataHora(local), "01/11/2026 09:05");
+  assert.equal(formatarDataHora(local.toISOString()), "01/11/2026 09:05");
+  assert.equal(formatarDataHora("2026-12-31"), "31/12/2026"); // data sem hora
+  assert.equal(formatarDataHora(null), "—");
+  assert.equal(formatarDataHora("lixo"), "—");
+});

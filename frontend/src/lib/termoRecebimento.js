@@ -32,9 +32,17 @@ export function formatarData(data) {
   return d.toLocaleDateString("pt-BR");
 }
 
-function formatarDataHora(data) {
+// EPI-346: data E HORA da movimentação ("01/11/2026 09:05"), no fuso do
+// computador de quem está vendo. O banco já grava a hora (created_at,
+// timestamptz) em toda entrega, troca, devolução e movimentação de estoque.
+// Data sem hora ("aaaa-mm-dd", ex.: validade do CA) mostra só a data.
+export function formatarDataHora(data) {
+  if (!data) return "—";
+  if (typeof data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data)) return formatarData(data);
   const d = data instanceof Date ? data : new Date(data);
-  return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  if (Number.isNaN(d.getTime())) return "—";
+  const doisDigitos = (n) => String(n).padStart(2, "0");
+  return `${d.toLocaleDateString("pt-BR")} ${doisDigitos(d.getHours())}:${doisDigitos(d.getMinutes())}`;
 }
 
 const ESTILO = `
