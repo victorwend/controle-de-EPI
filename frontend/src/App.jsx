@@ -48,7 +48,8 @@ export default function App() {
             <Route path="/obras/nova" element={<NovaObra />} />
             <Route path="/cadastros" element={<CadastrosCentral />} />
             <Route path="/cadastros/biometria" element={<BiometriaCadastro />} />
-            <Route path="/cadastros/usuario" element={<NovoUsuario />} />
+            {/* EPI-332: o convite fica dentro de Usuários e permissões; o endereço antigo redireciona */}
+            <Route path="/cadastros/usuario" element={<Navigate to="/usuarios/convidar" replace />} />
             <Route path="/cadastros/:tipo" element={<CadastroMestre />} />
             <Route path="/obras" element={<ObrasLista />} />
             <Route path="/obras/:slug" element={<ObraDetalhe />} />
@@ -75,6 +76,7 @@ export default function App() {
             <Route path="/estoque/locais/:id/editar" element={<NovoLocalEstoque />} />
             <Route path="/relatorios" element={<RelatoriosPainel />} />
             <Route path="/usuarios" element={<UsuariosPermissoes />} />
+            <Route path="/usuarios/convidar" element={<NovoUsuario />} />
             <Route path="/configuracoes" element={<Placeholder />} />
           </Route>
 
