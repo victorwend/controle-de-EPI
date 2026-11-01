@@ -84,7 +84,8 @@ export default function LoteEntrega() {
       setFuncionarios(funcionariosData ?? []);
       setEpis(episData ?? []);
       setMatriz(matrizData ?? []);
-      // Vindo da aba Entregas com funcionários marcados ("Entregar em lote").
+      // Se outra tela abrir o lote com funcionários já escolhidos
+      // (navigate("/entregas/lote", { state: { funcionarioIds } })), eles vêm marcados.
       setSelecionados(selecaoInicial(location.state?.funcionarioIds, funcionariosData ?? []));
       setCarregando(false);
     }
