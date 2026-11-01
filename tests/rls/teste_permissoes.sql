@@ -3,6 +3,8 @@
 -- Não altera nada: no final, tudo é desfeito de propósito.
 -- Esperado ANTES da correção 09: testes 1, 2 e 3 FALHOU.
 -- Esperado DEPOIS da correção 09: todos OK.
+-- EPI-329: o perfil Operador saiu do sistema; os testes 1 e 6 usam Gestor,
+-- que também não pode cadastrar EPI nem registrar entrega.
 -- O resultado aparece como uma mensagem de ERRO vermelha
 -- começando com "RESULTADO DOS TESTES". Isso é esperado.
 -- =============================================================
@@ -48,15 +50,15 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_usuario, 'role', 'authenticated')::text, true);
 
-  -- TESTE 1: operador tenta cadastrar um EPI ------------------------
-  update usuarios set perfil = 'operador' where id = v_usuario;
+  -- TESTE 1: gestor tenta cadastrar um EPI ------------------------
+  update usuarios set perfil = 'gestor' where id = v_usuario;
   execute 'set local role authenticated';
   begin
     insert into epis (empresa_id, nome, ca, validade_ca)
-      values (v_empresa, 'EPI criado por operador', 'CA-OP-' || left(gen_random_uuid()::text, 8), current_date + 365);
-    v_relatorio := v_relatorio || E'\nTESTE 1 (operador cadastra EPI): FALHOU - o banco aceitou';
+      values (v_empresa, 'EPI criado por gestor', 'CA-OP-' || left(gen_random_uuid()::text, 8), current_date + 365);
+    v_relatorio := v_relatorio || E'\nTESTE 1 (gestor cadastra EPI): FALHOU - o banco aceitou';
   exception when insufficient_privilege then
-    v_relatorio := v_relatorio || E'\nTESTE 1 (operador cadastra EPI): OK - o banco recusou';
+    v_relatorio := v_relatorio || E'\nTESTE 1 (gestor cadastra EPI): OK - o banco recusou';
   end;
   execute 'reset role';
 
@@ -117,14 +119,14 @@ begin
   end;
   execute 'reset role';
 
-  -- TESTE 6: operador tenta registrar entrega pela função ------------
-  update usuarios set perfil = 'operador' where id = v_usuario;
+  -- TESTE 6: gestor tenta registrar entrega pela função ------------
+  update usuarios set perfil = 'gestor' where id = v_usuario;
   execute 'set local role authenticated';
   begin
     perform registrar_entrega(v_func, v_local, jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel');
-    v_relatorio := v_relatorio || E'\nTESTE 6 (operador registra entrega): FALHOU - o banco aceitou';
+    v_relatorio := v_relatorio || E'\nTESTE 6 (gestor registra entrega): FALHOU - o banco aceitou';
   exception when insufficient_privilege then
-    v_relatorio := v_relatorio || E'\nTESTE 6 (operador registra entrega): OK - o banco recusou';
+    v_relatorio := v_relatorio || E'\nTESTE 6 (gestor registra entrega): OK - o banco recusou';
   end;
   execute 'reset role';
 

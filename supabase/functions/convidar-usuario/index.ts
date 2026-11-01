@@ -25,7 +25,8 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-const PERFIS_VALIDOS = ["administrador", "almoxarife", "tecnico_seguranca", "gestor", "operador"];
+// EPI-329: o perfil "operador" saiu do sistema (correção 17).
+const PERFIS_VALIDOS = ["administrador", "almoxarife", "tecnico_seguranca", "gestor"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -59,7 +60,7 @@ Deno.serve(async (req) => {
 
     const { data: callerUsuario, error: callerUsuarioError } = await adminClient
       .from("usuarios")
-      .select("empresa_id, perfil")
+      .select("empresa_id, perfil, status")
       .eq("id", caller.id)
       .single();
 
@@ -67,7 +68,8 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Usuário não encontrado." }, 403);
     }
 
-    if (callerUsuario.perfil !== "administrador") {
+    // EPI-329: administrador INATIVO não convida ninguém (RN-013).
+    if (callerUsuario.perfil !== "administrador" || callerUsuario.status !== "ativo") {
       return jsonResponse({ error: "Só o Administrador pode convidar novos usuários." }, 403);
     }
 

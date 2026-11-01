@@ -16,7 +16,7 @@ const TILES = [
   { label: "Fornecedores", to: "/cadastros/fornecedor" },
   { label: "Cargos / Funções", to: "/cadastros/cargo" },
   { label: "Setores / Centros de custo", to: "/cadastros/setor" },
-  { label: "Usuários", to: "/cadastros/usuario" },
+  { label: "Usuários e permissões", to: "/usuarios" },
   { label: "Categorias de EPI", to: "/cadastros/categoria-epi" },
   { label: "Motivos de movimentação", to: "/cadastros/motivo-movimentacao" },
   { label: "Cadastrar biometria", to: "/cadastros/biometria" },

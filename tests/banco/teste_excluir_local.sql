@@ -75,18 +75,22 @@ begin
   end;
   v_relatorio := v_relatorio || E'\nTESTE 3 (excluir local com histórico): ' || v_resultado;
 
-  -- TESTE 4: OPERADOR tenta excluir local inativo -> não exclui ---------
-  update usuarios set perfil = 'operador' where id = v_usuario;
+  -- TESTE 4: GESTOR tenta excluir local inativo -> não exclui -----------
+  -- (troca o perfil como dono do banco: pelo sistema ninguém muda o
+  -- próprio perfil, ver correção 17)
+  execute 'reset role';
+  update usuarios set perfil = 'gestor' where id = v_usuario;
+  execute 'set local role authenticated';
   begin
     delete from locais_estoque where id = v_inativo;
     get diagnostics v_linhas = row_count;
-    v_resultado := case when v_linhas = 0 then 'OK - o banco não deixou' else 'FALHOU - operador excluiu' end;
+    v_resultado := case when v_linhas = 0 then 'OK - o banco não deixou' else 'FALHOU - gestor excluiu' end;
     raise exception using errcode = 'ZZ001';
   exception
     when sqlstate 'ZZ001' then null;
     when others then v_resultado := 'OK - o banco recusou';
   end;
-  v_relatorio := v_relatorio || E'\nTESTE 4 (operador exclui local): ' || v_resultado;
+  v_relatorio := v_relatorio || E'\nTESTE 4 (gestor exclui local): ' || v_resultado;
 
   execute 'reset role';
   raise exception 'RESULTADO DOS TESTES:%', v_relatorio;

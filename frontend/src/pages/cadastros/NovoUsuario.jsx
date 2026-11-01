@@ -3,21 +3,17 @@ import { useNavigate } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
+import { PERFIL_PADRAO, PERFIS } from "../../lib/permissoes.js";
 
-const PERFIS = [
-  { valor: "operador", label: "Operador" },
-  { valor: "almoxarife", label: "Almoxarife" },
-  { valor: "tecnico_seguranca", label: "Técnico de Segurança" },
-  { valor: "gestor", label: "Gestor" },
-  { valor: "administrador", label: "Administrador" },
-];
+// EPI-329: os perfis vêm de lib/permissoes.js (o Operador saiu). O perfil
+// sugerido é o Gestor, que só consulta: quem convida escolhe dar mais.
 
 export default function NovoUsuario() {
   const navigate = useNavigate();
   const { usuario } = useAuth();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
-  const [perfil, setPerfil] = useState("operador");
+  const [perfil, setPerfil] = useState(PERFIL_PADRAO);
   const [obras, setObras] = useState([]);
   const [obrasSelecionadas, setObrasSelecionadas] = useState({});
   const [loading, setLoading] = useState(false);
@@ -75,13 +71,13 @@ export default function NovoUsuario() {
     setSucesso(true);
     setNome("");
     setEmail("");
-    setPerfil("operador");
+    setPerfil(PERFIL_PADRAO);
     setObrasSelecionadas({});
   }
 
   if (usuario && usuario.perfil !== "administrador") {
     return (
-      <AppShell title="Cadastro de usuário" activeSection="Cadastros">
+      <AppShell title="Cadastro de usuário" activeSection="Usuários e permissões">
         <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
           Só o Administrador da empresa pode convidar novos usuários.
         </div>
@@ -90,7 +86,7 @@ export default function NovoUsuario() {
   }
 
   return (
-    <AppShell title="Cadastro de usuário" subtitle="Controle quem pode acessar o sistema e suas permissões." activeSection="Cadastros">
+    <AppShell title="Cadastro de usuário" subtitle="Controle quem pode acessar o sistema e suas permissões." activeSection="Usuários e permissões">
       <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-8">
         <h2 className="text-lg font-semibold text-epi-ink">Cadastro de usuário</h2>
         <p className="mt-1 text-sm text-epi-muted">
@@ -168,7 +164,7 @@ export default function NovoUsuario() {
           <div className="mt-8 flex items-center justify-between border-t border-epi-border pt-6">
             <button
               type="button"
-              onClick={() => navigate("/cadastros")}
+              onClick={() => navigate("/usuarios")}
               className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink"
             >
               Voltar
