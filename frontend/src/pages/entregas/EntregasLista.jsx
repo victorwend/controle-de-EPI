@@ -1,43 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import SePuder from "../../components/SePuder.jsx";
-import { useAuth } from "../../context/AuthContext.jsx";
-import { contarInativos, filtrarFuncionarios } from "../../lib/funcionarios.js";
+import { filtrarFuncionarios } from "../../lib/funcionarios.js";
 import { rotuloMotivoEntrega } from "../../lib/entregas.js";
-import { alternarId, alternarTodos, filtrarEntregas, todosMarcados } from "../../lib/loteEntrega.js";
+import { filtrarEntregas } from "../../lib/loteEntrega.js";
 
-// Aba Entregas de EPI.
+// Aba Entregas de EPI: todas as entregas, da mais recente para a mais antiga.
 //
-// EPI-343 (pedido do Victor, 01/11/2026): a aba ganhou a mesma seleção de
-// funcionários da tela Funcionários. Duas visões:
-//  - "Funcionários": lista com caixinhas; com alguém marcado aparece a
-//    barra "Consultar entregas" (mostra só as entregas deles), "Nova entrega"
-//    (quando é 1 só) e "Entregar em lote" (abre o lote já com eles marcados);
-//  - "Entregas": todas as entregas, da mais recente para a mais antiga.
+// EPI-344 (pedido do Victor, 01/11/2026): a lista de funcionários com
+// caixinhas que a EPI-343 colocou aqui repetia a aba Funcionários e saiu.
+// Ficou só a lista de entregas + "Consultar entregas de um funcionário":
+// busca o funcionário (ativo ou inativo) e a lista mostra só as entregas
+// dele. Clicar no nome de alguém na lista faz o mesmo.
 
 function formatarData(dataIso) {
   return new Date(dataIso).toLocaleDateString("pt-BR");
 }
 
-const abaClasse = (ativa) =>
-  `rounded-lg px-4 py-2 text-sm font-medium ${ativa ? "bg-epi-brand text-white" : "border border-epi-border bg-white text-epi-ink"}`;
-
 export default function EntregasLista() {
-  const navigate = useNavigate();
-  const { pode } = useAuth();
-  const [visao, setVisao] = useState("funcionarios");
   const [busca, setBusca] = useState("");
   const [obraFiltro, setObraFiltro] = useState("");
-  const [mostrarInativos, setMostrarInativos] = useState(false);
   const [linhas, setLinhas] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
   const [obras, setObras] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selecionados, setSelecionados] = useState(() => new Set());
-  // Funcionários cujas entregas estão sendo consultadas (null = todos).
-  const [consultando, setConsultando] = useState(null);
+  const [buscaFuncionario, setBuscaFuncionario] = useState("");
+  // Funcionário cujas entregas estão sendo consultadas (null = todos).
+  const [consultado, setConsultado] = useState(null);
 
   useEffect(() => {
     let ativo = true;
@@ -47,10 +38,7 @@ export default function EntregasLista() {
         .select(
           "id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, status, motivo, obras(id, nome), funcionarios(nome, matricula, obras(id, nome)))"
         ),
-      supabase
-        .from("funcionarios")
-        .select("id, matricula, nome, funcao, status, obra_id, obras(nome)")
-        .order("nome"),
+      supabase.from("funcionarios").select("id, matricula, nome, funcao, status, obra_id, obras(nome)").order("nome"),
       supabase.from("obras").select("id, nome").order("nome"),
     ]).then(([{ data: itensData }, { data: funcionariosData }, { data: obrasData }]) => {
       if (!ativo) return;
@@ -64,49 +52,39 @@ export default function EntregasLista() {
     };
   }, []);
 
-  // Quantas entregas (itens) cada funcionário tem — coluna da lista.
-  const entregasPorFuncionario = useMemo(() => {
-    const contagem = {};
-    for (const linha of linhas) {
-      const id = linha.entregas?.funcionario_id;
-      if (id) contagem[id] = (contagem[id] ?? 0) + 1;
-    }
-    return contagem;
-  }, [linhas]);
-
-  const funcionariosFiltrados = useMemo(
-    () => filtrarFuncionarios(funcionarios, { busca, obraId: obraFiltro, mostrarInativos }),
-    [busca, obraFiltro, mostrarInativos, funcionarios]
-  );
-  const quantidadeInativos = contarInativos(funcionarios);
+  // Sugestões da busca de funcionário (ativos e inativos, no máximo 8).
+  const sugestoes = useMemo(() => {
+    if (!buscaFuncionario.trim()) return [];
+    return filtrarFuncionarios(funcionarios, { busca: buscaFuncionario, mostrarInativos: true }).slice(0, 8);
+  }, [buscaFuncionario, funcionarios]);
 
   const linhasFiltradas = useMemo(
-    () => filtrarEntregas(linhas, { busca, obraId: obraFiltro, funcionarioIds: consultando }),
-    [busca, obraFiltro, linhas, consultando]
+    () =>
+      filtrarEntregas(linhas, {
+        busca,
+        obraId: obraFiltro,
+        funcionarioIds: consultado ? new Set([consultado.id]) : null,
+      }),
+    [busca, obraFiltro, linhas, consultado]
   );
 
-  const marcados = funcionarios.filter((f) => selecionados.has(f.id));
-  const marcadosAtivos = marcados.filter((f) => f.status === "ativo");
-
-  function consultarEntregas(ids) {
-    setConsultando(new Set(ids));
+  function consultar(funcionario) {
+    setConsultado(funcionario);
+    setBuscaFuncionario("");
     setBusca("");
-    setVisao("entregas");
   }
 
-  function verTodasEntregas() {
-    setConsultando(null);
-    setVisao("entregas");
+  function consultarPorId(funcionarioId) {
+    const funcionario = funcionarios.find((f) => f.id === funcionarioId);
+    if (funcionario) consultar(funcionario);
   }
-
-  const nomesConsultados = consultando ? funcionarios.filter((f) => consultando.has(f.id)).map((f) => f.nome) : [];
 
   return (
     <AppShell title="Controle de Equipamentos de Proteção Individual" activeSection="Entregas de EPI">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-epi-ink">Entregas de EPI</h2>
-          <p className="mt-1 text-sm text-epi-muted">Selecione funcionários para consultar ou registrar entregas.</p>
+          <p className="mt-1 text-sm text-epi-muted">Consulte e registre todas as entregas realizadas aos colaboradores.</p>
         </div>
         <div className="flex gap-3">
           <SePuder acao="registrar_entregas">
@@ -136,13 +114,78 @@ export default function EntregasLista() {
         </div>
       </div>
 
-      <div className="mb-4 flex gap-2">
-        <button type="button" onClick={() => setVisao("funcionarios")} className={abaClasse(visao === "funcionarios")}>
-          Funcionários
-        </button>
-        <button type="button" onClick={verTodasEntregas} className={abaClasse(visao === "entregas" && !consultando)}>
-          Todas as entregas
-        </button>
+      {/* Consultar entregas de um funcionário */}
+      <div className="mb-4 max-w-[1060px] rounded-xl border border-epi-border bg-white p-4">
+        {!consultado ? (
+          <div className="relative">
+            <label className="block text-[13px] font-medium text-epi-ink">
+              Consultar entregas de um funcionário
+              <input
+                type="text"
+                value={buscaFuncionario}
+                onChange={(event) => setBuscaFuncionario(event.target.value)}
+                placeholder="Digite o nome, a matrícula ou a função..."
+                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
+              />
+            </label>
+            {buscaFuncionario.trim() && (
+              <div className="absolute z-10 mt-1 w-full rounded-lg border border-epi-border bg-white shadow-lg">
+                {sugestoes.length === 0 && <p className="px-3 py-2 text-sm text-epi-muted">Nenhum funcionário encontrado.</p>}
+                {sugestoes.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => consultar(f)}
+                    className="block w-full px-3 py-2 text-left text-sm hover:bg-epi-paper"
+                  >
+                    <span className="font-medium text-epi-ink">{f.nome}</span>
+                    <span className="text-xs text-epi-muted">
+                      {" "}
+                      • {f.matricula} • {f.funcao || "sem função"} • {f.obras?.nome ?? "sem obra"}
+                      {f.status !== "ativo" && " • inativo"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-epi-muted">Mostrando as entregas de</p>
+              <p className="text-sm font-semibold text-epi-ink">
+                {consultado.nome}
+                <span className="font-normal text-epi-muted">
+                  {" "}
+                  • matrícula {consultado.matricula} • {consultado.obras?.nome ?? "sem obra"}
+                  {consultado.status !== "ativo" && " • inativo"}
+                </span>
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-4 text-sm">
+              <Link to={`/funcionarios/${consultado.matricula}/historico`} className="font-semibold text-epi-brand">
+                Histórico completo (trocas e devoluções) →
+              </Link>
+              {consultado.status === "ativo" && (
+                <SePuder acao="registrar_entregas">
+                  <Link
+                    to={`/entregas/nova?funcionario=${encodeURIComponent(consultado.matricula)}`}
+                    className="font-semibold text-epi-brand"
+                  >
+                    + Nova entrega para ele
+                  </Link>
+                </SePuder>
+              )}
+              <button
+                type="button"
+                onClick={() => setConsultado(null)}
+                className="rounded-lg border border-epi-border bg-white px-3 py-1.5 font-medium text-epi-ink"
+              >
+                Ver todas as entregas
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mb-4 flex max-w-[1060px] gap-3">
@@ -150,7 +193,7 @@ export default function EntregasLista() {
           type="text"
           value={busca}
           onChange={(event) => setBusca(event.target.value)}
-          placeholder={visao === "funcionarios" ? "Buscar nome, matrícula ou função..." : "Buscar funcionário ou EPI..."}
+          placeholder="Filtrar por funcionário ou EPI..."
           className="h-11 flex-1 rounded-lg border border-epi-border px-3 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
         />
         <select
@@ -165,230 +208,77 @@ export default function EntregasLista() {
             </option>
           ))}
         </select>
-        {visao === "funcionarios" && (
-          <label className="flex h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-epi-border px-3 text-sm text-epi-ink">
-            <input
-              type="checkbox"
-              checked={mostrarInativos}
-              onChange={(event) => setMostrarInativos(event.target.checked)}
-              className="h-4 w-4 accent-epi-brand"
-            />
-            Mostrar inativos ({quantidadeInativos})
-          </label>
-        )}
       </div>
 
-      {visao === "funcionarios" && (
-        <>
-          {selecionados.size > 0 && (
-            <div className="mb-4 flex max-w-[1060px] flex-wrap items-center justify-between gap-3 rounded-xl border border-epi-brand bg-[#EBF5F0] px-4 py-3">
-              <p className="text-sm font-semibold text-epi-ink">{selecionados.size} funcionário(s) selecionado(s)</p>
-              <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSelecionados(new Set())}
-                  className="rounded-lg border border-epi-border bg-white px-4 py-2 text-sm font-medium text-epi-ink"
-                >
-                  Limpar seleção
-                </button>
-                <button
-                  type="button"
-                  onClick={() => consultarEntregas([...selecionados])}
-                  className="rounded-lg border border-epi-brand bg-white px-4 py-2 text-sm font-semibold text-epi-brand"
-                >
-                  Consultar entregas
-                </button>
-                {pode("registrar_entregas") && marcadosAtivos.length === 1 && marcados.length === 1 && (
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/entregas/nova?funcionario=${encodeURIComponent(marcadosAtivos[0].matricula)}`)}
-                    className="rounded-lg border border-epi-brand bg-white px-4 py-2 text-sm font-semibold text-epi-brand"
-                  >
-                    Nova entrega
-                  </button>
-                )}
-                {pode("registrar_entregas") && marcadosAtivos.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/entregas/lote", { state: { funcionarioIds: marcadosAtivos.map((f) => f.id) } })}
-                    className="rounded-lg bg-epi-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
-                  >
-                    Entregar em lote ({marcadosAtivos.length})
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="max-w-[1060px] overflow-x-auto rounded-xl border border-epi-border bg-white">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                  <th className="w-10 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      checked={todosMarcados(selecionados, funcionariosFiltrados)}
-                      onChange={() => setSelecionados((atual) => alternarTodos(atual, funcionariosFiltrados))}
-                      disabled={funcionariosFiltrados.length === 0}
-                      aria-label="Selecionar todos os funcionários da lista"
-                      title="Selecionar todos os que estão na lista"
-                      className="h-4 w-4 accent-epi-brand"
-                    />
-                  </th>
-                  <th className="px-4 py-3 font-medium">Funcionário</th>
-                  <th className="px-4 py-3 font-medium">Matrícula</th>
-                  <th className="px-4 py-3 font-medium">Função</th>
-                  <th className="px-4 py-3 font-medium">Obra</th>
-                  <th className="px-4 py-3 font-medium">Itens entregues</th>
-                  <th className="px-4 py-3 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
-                      Carregando...
-                    </td>
-                  </tr>
-                )}
-                {!loading &&
-                  funcionariosFiltrados.map((funcionario) => (
-                    <tr
-                      key={funcionario.id}
-                      className={`border-b border-epi-border last:border-0 ${funcionario.status === "ativo" ? "" : "bg-epi-paper"}`}
+      <div className="max-w-[1060px] overflow-x-auto rounded-xl border border-epi-border bg-white">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
+              <th className="px-4 py-3 font-medium">Data</th>
+              <th className="px-4 py-3 font-medium">Funcionário</th>
+              <th className="px-4 py-3 font-medium">EPI</th>
+              <th className="px-4 py-3 font-medium">CA</th>
+              <th className="px-4 py-3 font-medium">Obra</th>
+              <th className="px-4 py-3 font-medium">Motivo</th>
+              <th className="px-4 py-3 font-medium">Qtd.</th>
+              <th className="px-4 py-3 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-center text-epi-muted">
+                  Carregando...
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              linhasFiltradas.map((linha) => (
+                <tr key={linha.id} className="border-b border-epi-border last:border-0">
+                  <td className="px-4 py-3 text-epi-muted">
+                    {linha.entregas?.created_at ? formatarData(linha.entregas.created_at) : "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => consultarPorId(linha.entregas?.funcionario_id)}
+                      title="Consultar as entregas deste funcionário"
+                      className="text-left font-medium text-epi-ink hover:text-epi-brand hover:underline"
                     >
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          checked={selecionados.has(funcionario.id)}
-                          onChange={() => setSelecionados((atual) => alternarId(atual, funcionario.id))}
-                          aria-label={`Selecionar ${funcionario.nome}`}
-                          className="h-4 w-4 accent-epi-brand"
-                        />
-                      </td>
-                      <td className="px-4 py-3 font-medium text-epi-ink">
-                        {funcionario.nome}
-                        {funcionario.status !== "ativo" && <span className="ml-2 text-xs font-normal text-epi-muted">(inativo)</span>}
-                      </td>
-                      <td className="px-4 py-3 text-epi-muted">{funcionario.matricula}</td>
-                      <td className="px-4 py-3 text-epi-muted">{funcionario.funcao || "—"}</td>
-                      <td className="px-4 py-3 text-epi-muted">{funcionario.obras?.nome ?? "—"}</td>
-                      <td className="px-4 py-3 text-epi-muted">{entregasPorFuncionario[funcionario.id] ?? 0}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          type="button"
-                          onClick={() => consultarEntregas([funcionario.id])}
-                          className="text-sm font-semibold text-epi-brand"
-                        >
-                          Consultar entregas
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                {!loading && funcionariosFiltrados.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
-                      Nenhum funcionário encontrado.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
-            Marque um ou mais funcionários para consultar as entregas deles ou entregar em lote.
-          </p>
-        </>
-      )}
-
-      {visao === "entregas" && (
-        <>
-          {consultando && (
-            <div className="mb-4 flex max-w-[1060px] flex-wrap items-center justify-between gap-3 rounded-xl border border-epi-border bg-epi-paper px-4 py-3 text-sm">
-              <p className="text-epi-ink">
-                Entregas de <b>{nomesConsultados.length <= 3 ? nomesConsultados.join(", ") : `${nomesConsultados.length} funcionários`}</b>
-              </p>
-              <div className="flex gap-4">
-                {consultando.size === 1 && (
-                  <Link
-                    to={`/funcionarios/${funcionarios.find((f) => consultando.has(f.id))?.matricula}/historico`}
-                    className="font-semibold text-epi-brand"
+                      {linha.entregas?.funcionarios?.nome ?? "—"}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3 text-epi-muted">{linha.epis?.nome ?? "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">{linha.epis?.ca ?? "—"}</td>
+                  <td className="px-4 py-3 text-epi-muted">
+                    {linha.entregas?.obras?.nome ?? linha.entregas?.funcionarios?.obras?.nome ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-epi-muted">{rotuloMotivoEntrega(linha.entregas?.motivo)}</td>
+                  <td className="px-4 py-3 text-epi-muted">{linha.quantidade}</td>
+                  <td
+                    className={`px-4 py-3 font-medium ${
+                      linha.entregas?.status === "pendente" ? "text-orange-600" : "text-epi-muted"
+                    }`}
                   >
-                    Histórico completo (trocas e devoluções) →
-                  </Link>
-                )}
-                <button type="button" onClick={() => setVisao("funcionarios")} className="font-semibold text-epi-brand">
-                  ← Voltar aos funcionários
-                </button>
-                <button type="button" onClick={verTodasEntregas} className="font-semibold text-epi-brand">
-                  Ver todas
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="max-w-[1060px] overflow-x-auto rounded-xl border border-epi-border bg-white">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                  <th className="px-4 py-3 font-medium">Data</th>
-                  <th className="px-4 py-3 font-medium">Funcionário</th>
-                  <th className="px-4 py-3 font-medium">EPI</th>
-                  <th className="px-4 py-3 font-medium">CA</th>
-                  <th className="px-4 py-3 font-medium">Obra</th>
-                  <th className="px-4 py-3 font-medium">Motivo</th>
-                  <th className="px-4 py-3 font-medium">Qtd.</th>
-                  <th className="px-4 py-3 font-medium">Status</th>
+                    {linha.entregas?.status === "pendente" ? "Pendente" : "Confirmada"}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-6 text-center text-epi-muted">
-                      Carregando...
-                    </td>
-                  </tr>
-                )}
-                {!loading &&
-                  linhasFiltradas.map((linha) => (
-                    <tr key={linha.id} className="border-b border-epi-border last:border-0">
-                      <td className="px-4 py-3 text-epi-muted">
-                        {linha.entregas?.created_at ? formatarData(linha.entregas.created_at) : "—"}
-                      </td>
-                      <td className="px-4 py-3 font-medium text-epi-ink">{linha.entregas?.funcionarios?.nome ?? "—"}</td>
-                      <td className="px-4 py-3 text-epi-muted">{linha.epis?.nome ?? "—"}</td>
-                      <td className="px-4 py-3 text-epi-muted">{linha.epis?.ca ?? "—"}</td>
-                      <td className="px-4 py-3 text-epi-muted">
-                        {linha.entregas?.obras?.nome ?? linha.entregas?.funcionarios?.obras?.nome ?? "—"}
-                      </td>
-                      <td className="px-4 py-3 text-epi-muted">{rotuloMotivoEntrega(linha.entregas?.motivo)}</td>
-                      <td className="px-4 py-3 text-epi-muted">{linha.quantidade}</td>
-                      <td
-                        className={`px-4 py-3 font-medium ${
-                          linha.entregas?.status === "pendente" ? "text-orange-600" : "text-epi-muted"
-                        }`}
-                      >
-                        {linha.entregas?.status === "pendente" ? "Pendente" : "Confirmada"}
-                      </td>
-                    </tr>
-                  ))}
-                {!loading && linhasFiltradas.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-6 text-center text-epi-muted">
-                      Nenhuma entrega encontrada.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            {!loading && linhasFiltradas.length === 0 && (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-center text-epi-muted">
+                  {consultado ? "Este funcionário ainda não recebeu nenhum EPI." : "Nenhuma entrega encontrada."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
-            Mostrando {linhasFiltradas.length} de {linhas.length} itens entregues.
-          </p>
-        </>
-      )}
-
+      <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
+        Mostrando {linhasFiltradas.length} de {linhas.length} itens entregues. Clique no nome de um funcionário para ver
+        só as entregas dele.
+      </p>
       <p className="mt-1 max-w-[1060px] text-sm text-epi-muted">
         Validação automática de estoque: a entrega é bloqueada quando não houver quantidade suficiente.
       </p>
