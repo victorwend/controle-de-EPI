@@ -4,6 +4,8 @@ import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import SePuder from "../../components/SePuder.jsx";
 import { filtrarFuncionarios } from "../../lib/funcionarios.js";
+import { itensDaPagina } from "../../lib/paginacao.js";
+import Paginacao from "../../components/Paginacao.jsx";
 import { rotuloMotivoEntrega } from "../../lib/entregas.js";
 import {
   alternarId,
@@ -41,6 +43,9 @@ import {
 // EPI-347: a caixinha marca só a PRÓPRIA LINHA (antes marcava o funcionário
 // e acendia todas as linhas dele, parecendo que marcava as dos outros).
 // "Consultar entregas" usa os funcionários das linhas marcadas.
+//
+// EPI-348: a lista e o histórico mostram 10 linhas por vez, com o índice
+// de páginas "‹ Anterior 1 2 3 … 10 Próxima ›" embaixo (components/Paginacao.jsx).
 
 export default function EntregasLista() {
   const [busca, setBusca] = useState("");
@@ -58,6 +63,9 @@ export default function EntregasLista() {
   const [carregandoHistorico, setCarregandoHistorico] = useState(false);
   const [erroHistorico, setErroHistorico] = useState("");
   const [filtroHistorico, setFiltroHistorico] = useState("");
+  // EPI-348: página atual da lista e do histórico.
+  const [pagina, setPagina] = useState(1);
+  const [paginaHistorico, setPaginaHistorico] = useState(1);
 
   useEffect(() => {
     let ativo = true;
@@ -91,6 +99,7 @@ export default function EntregasLista() {
     () => filtrarEntregas(linhas, { busca, obraId: obraFiltro }),
     [busca, obraFiltro, linhas]
   );
+  const linhasDaPagina = itensDaPagina(linhasFiltradas, pagina);
   const funcionariosMarcados = useMemo(() => funcionariosDasLinhasMarcadas(linhas, selecionados), [linhas, selecionados]);
 
   // Busca entregas E trocas/devoluções/baixas dos funcionários escolhidos.
@@ -98,6 +107,7 @@ export default function EntregasLista() {
     setConsultados(lista);
     setBuscaFuncionario("");
     setFiltroHistorico("");
+    setPaginaHistorico(1);
     setErroHistorico("");
     setHistorico([]);
     setCarregandoHistorico(true);
@@ -136,6 +146,7 @@ export default function EntregasLista() {
   }
 
   const historicoFiltrado = useMemo(() => filtrarHistorico(historico, filtroHistorico), [historico, filtroHistorico]);
+  const historicoDaPagina = itensDaPagina(historicoFiltrado, paginaHistorico);
   const umSo = consultados?.length === 1 ? consultados[0] : null;
 
   return (
@@ -213,13 +224,19 @@ export default function EntregasLista() {
             <input
               type="text"
               value={busca}
-              onChange={(event) => setBusca(event.target.value)}
+              onChange={(event) => {
+                setBusca(event.target.value);
+                setPagina(1);
+              }}
               placeholder="Filtrar por funcionário ou EPI..."
               className="h-11 flex-1 rounded-lg border border-epi-border px-3 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
             />
             <select
               value={obraFiltro}
-              onChange={(event) => setObraFiltro(event.target.value)}
+              onChange={(event) => {
+                setObraFiltro(event.target.value);
+                setPagina(1);
+              }}
               className="h-11 w-52 rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
             >
               <option value="">Todas as obras</option>
@@ -264,11 +281,11 @@ export default function EntregasLista() {
                   <th className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
-                      checked={todosMarcados(selecionados, linhasFiltradas)}
-                      onChange={() => setSelecionados((atual) => alternarTodos(atual, linhasFiltradas))}
-                      disabled={linhasFiltradas.length === 0}
-                      aria-label="Selecionar todas as entregas da lista"
-                      title="Selecionar todas as entregas que estão na lista"
+                      checked={todosMarcados(selecionados, linhasDaPagina)}
+                      onChange={() => setSelecionados((atual) => alternarTodos(atual, linhasDaPagina))}
+                      disabled={linhasDaPagina.length === 0}
+                      aria-label="Selecionar todas as entregas desta página"
+                      title="Selecionar todas as entregas desta página"
                       className="h-4 w-4 accent-epi-brand"
                     />
                   </th>
@@ -291,7 +308,7 @@ export default function EntregasLista() {
                   </tr>
                 )}
                 {!loading &&
-                  linhasFiltradas.map((linha) => {
+                  linhasDaPagina.map((linha) => {
                     const funcionarioId = linha.entregas?.funcionario_id;
                     const marcado = selecionados.has(linha.id);
                     return (
@@ -349,8 +366,12 @@ export default function EntregasLista() {
             </table>
           </div>
 
-          <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
-            Mostrando {linhasFiltradas.length} de {linhas.length} itens entregues. Marque as caixinhas e clique em{" "}
+          {!loading && (
+            <Paginacao pagina={pagina} quantidade={linhasFiltradas.length} onMudar={setPagina} rotulo="itens entregues" />
+          )}
+
+          <p className="mt-3 max-w-[1060px] text-sm text-epi-muted">
+            Marque as caixinhas e clique em{" "}
             <b>Consultar entregas</b> para ver todo o histórico (entregas, trocas, devoluções e baixas) dos
             funcionários das linhas marcadas. Clicar no nome faz o mesmo para uma pessoa.
           </p>
@@ -420,7 +441,10 @@ export default function EntregasLista() {
               <button
                 key={f.valor || "todos"}
                 type="button"
-                onClick={() => setFiltroHistorico(f.valor)}
+                onClick={() => {
+                  setFiltroHistorico(f.valor);
+                  setPaginaHistorico(1);
+                }}
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
                   filtroHistorico === f.valor ? "bg-[#EBF5F0] text-epi-brand" : "border border-epi-border bg-white text-epi-ink"
                 }`}
@@ -456,7 +480,7 @@ export default function EntregasLista() {
                   </tr>
                 )}
                 {!carregandoHistorico &&
-                  historicoFiltrado.map((linha) => (
+                  historicoDaPagina.map((linha) => (
                     <tr key={linha.id} className="border-b border-epi-border last:border-0">
                       <td className="px-4 py-3 text-epi-muted">{linha.data ? formatarDataHora(linha.data) : "—"}</td>
                       {!umSo && <td className="px-4 py-3 font-medium text-epi-ink">{linha.funcionarioNome}</td>}
@@ -491,7 +515,16 @@ export default function EntregasLista() {
             </table>
           </div>
 
-          <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
+          {!carregandoHistorico && (
+            <Paginacao
+              pagina={paginaHistorico}
+              quantidade={historicoFiltrado.length}
+              onMudar={setPaginaHistorico}
+              rotulo="movimentações"
+            />
+          )}
+
+          <p className="mt-3 max-w-[1060px] text-sm text-epi-muted">
             Qtd.: <b>+</b> entrou na posse (entrega), <b>±</b> troca (sai o usado, entra um novo), <b>−</b> saiu da
             posse (devolução ou baixa). Os registros não podem ser excluídos.
           </p>
