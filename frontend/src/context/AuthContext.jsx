@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
 
     const { data } = await supabase
       .from("usuarios")
-      .select("id, empresa_id, nome_completo, perfil, status")
+      .select("id, empresa_id, nome_completo, perfil, status, trocar_senha")
       .eq("id", sessionAtual.user.id)
       .maybeSingle();
 
@@ -75,8 +75,14 @@ export function AuthProvider({ children }) {
   // botões: quem garante a regra é o banco.
   const pode = useCallback((acao) => podeFazer(usuario?.perfil, acao, minhasAcoes), [usuario, minhasAcoes]);
 
+  // EPI-335: recarrega o usuário (ex.: depois de trocar a senha temporária).
+  const recarregarUsuario = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    await carregarPerfil(data.session);
+  }, [carregarPerfil]);
+
   return (
-    <AuthContext.Provider value={{ session, usuario, temObra, loading, refreshTemObra, pode }}>
+    <AuthContext.Provider value={{ session, usuario, temObra, loading, refreshTemObra, pode, recarregarUsuario }}>
       {children}
     </AuthContext.Provider>
   );

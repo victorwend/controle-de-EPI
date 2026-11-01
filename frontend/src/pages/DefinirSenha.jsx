@@ -10,7 +10,9 @@ import SenhaRequisitos from "../components/SenhaRequisitos";
 // padrão) — aqui só falta a pessoa escolher a senha definitiva.
 export default function DefinirSenha() {
   const navigate = useNavigate();
-  const { session, loading } = useAuth();
+  const { session, loading, usuario, recarregarUsuario } = useAuth();
+  // EPI-335: entrou com a senha temporária que o administrador definiu.
+  const senhaTemporaria = Boolean(usuario?.trocar_senha);
   const [senha, setSenha] = useState("");
   const [confirmarSenha, setConfirmarSenha] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -40,6 +42,11 @@ export default function DefinirSenha() {
       return;
     }
 
+    // EPI-335: avisa o banco que a senha foi trocada (desliga a troca
+    // obrigatória) e recarrega o usuário antes de entrar no sistema.
+    await supabase.rpc("marcar_senha_trocada");
+    await recarregarUsuario();
+
     navigate("/visao-geral");
   }
 
@@ -52,7 +59,11 @@ export default function DefinirSenha() {
 
       <div className="w-full max-w-[440px] rounded-[20px] border border-epi-border bg-white p-8">
         <h2 className="text-[26px] font-semibold leading-tight text-epi-ink">Defina sua senha</h2>
-        <p className="mt-2 text-[15px] text-epi-muted">Este é o último passo para acessar o sistema.</p>
+        <p className="mt-2 text-[15px] text-epi-muted">
+          {senhaTemporaria
+            ? "Você entrou com uma senha temporária. Por segurança, crie agora a sua própria senha."
+            : "Este é o último passo para acessar o sistema."}
+        </p>
 
         {loading ? (
           <p className="mt-6 text-sm text-epi-muted">Carregando...</p>
