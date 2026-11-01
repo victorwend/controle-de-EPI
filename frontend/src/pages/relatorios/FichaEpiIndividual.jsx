@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import { formatarData as formatarDataCa, rotuloMetodoAceite, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
+import { formatarData as formatarDataCa, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
+import { montarHistorico, SELECT_ENTREGAS, SELECT_TROCAS } from "../../lib/historicoEpi.js";
 
 function formatarData(dataIso) {
   return new Date(dataIso).toLocaleDateString("pt-BR");
@@ -37,21 +38,14 @@ export default function FichaEpiIndividual() {
       setFuncionario(funcionarioData ?? null);
 
       if (funcionarioData) {
-        const [{ data: itensData }, { data: empresaData }] = await Promise.all([
-          supabase
-            .from("entrega_itens")
-            .select(
-              "id, quantidade, epis(nome, ca, validade_ca), entregas!inner(funcionario_id, created_at, comprovante, aceite_metodo, usuarios(nome_completo), obras(nome))"
-            )
-            .eq("entregas.funcionario_id", funcionarioData.id),
+        // EPI-342: entregas E trocas/devoluções/baixas, mais recente primeiro.
+        const [{ data: itensData }, { data: trocasData }, { data: empresaData }] = await Promise.all([
+          supabase.from("entrega_itens").select(SELECT_ENTREGAS).eq("entregas.funcionario_id", funcionarioData.id),
+          supabase.from("trocas_devolucoes_itens").select(SELECT_TROCAS).eq("funcionario_id", funcionarioData.id),
           supabase.from("empresas").select("razao_social").limit(1),
         ]);
         if (!ativo) return;
-        // Mais recente primeiro, pela data da entrega.
-        const ordenados = [...(itensData ?? [])].sort(
-          (a, b) => new Date(b.entregas.created_at) - new Date(a.entregas.created_at)
-        );
-        setHistorico(ordenados);
+        setHistorico(montarHistorico(itensData, trocasData));
         setEmpresaNome(empresaData?.[0]?.razao_social ?? "");
       }
     }
@@ -77,7 +71,7 @@ export default function FichaEpiIndividual() {
     );
   }
 
-  const ultimaEntrega = historico[0]?.entregas?.created_at;
+  const ultimaEntrega = historico.find((linha) => linha.categoria === "entrega")?.data;
 
   return (
     <div className="min-h-screen bg-epi-paper">
@@ -114,7 +108,9 @@ export default function FichaEpiIndividual() {
         </div>
 
         <div className="mt-6 overflow-x-auto rounded-lg border border-epi-border">
-          <h3 className="px-4 pt-4 text-sm font-semibold text-epi-ink">EPIs entregues ao colaborador</h3>
+          <h3 className="px-4 pt-4 text-sm font-semibold text-epi-ink">
+            Movimentações de EPI do colaborador (entregas, trocas, devoluções e baixas)
+          </h3>
           {historico.length === 0 ? (
             <p className="px-4 pb-4 pt-3 text-sm text-epi-muted">Nenhuma entrega registrada.</p>
           ) : (
@@ -122,29 +118,37 @@ export default function FichaEpiIndividual() {
               <thead className="border-y border-epi-border uppercase text-epi-muted">
                 <tr>
                   <th className="px-3 py-2">Data</th>
+                  <th className="px-3 py-2">Movimentação</th>
                   <th className="px-3 py-2">Obra</th>
                   <th className="px-3 py-2">EPI</th>
                   <th className="px-3 py-2">CA</th>
                   <th className="px-3 py-2">Validade do CA</th>
                   <th className="px-3 py-2">Qtd.</th>
-                  <th className="px-3 py-2">Aceite</th>
+                  <th className="px-3 py-2">Aceite / observação</th>
                   <th className="px-3 py-2">Responsável</th>
                   <th className="px-3 py-2">Comprovante</th>
                 </tr>
               </thead>
               <tbody>
-                {historico.map((item) => (
-                  <tr key={item.id} className="border-b border-epi-border last:border-0">
-                    <td className="px-3 py-2 text-epi-ink">{formatarData(item.entregas.created_at)}</td>
-                    {/* EPI-339: obra em que o EPI foi entregue (o funcionário pode ter sido transferido) */}
-                    <td className="px-3 py-2 text-epi-muted">{item.entregas.obras?.nome ?? "Sede"}</td>
-                    <td className="px-3 py-2 text-epi-ink">{item.epis?.nome ?? "—"}</td>
-                    <td className="px-3 py-2 text-epi-muted">{item.epis?.ca || "—"}</td>
-                    <td className="px-3 py-2 text-epi-muted">{formatarDataCa(item.epis?.validade_ca)}</td>
-                    <td className="px-3 py-2 text-epi-muted">{item.quantidade}</td>
-                    <td className="px-3 py-2 text-epi-muted">{rotuloMetodoAceite(item.entregas.aceite_metodo)}</td>
-                    <td className="px-3 py-2 text-epi-muted">{item.entregas.usuarios?.nome_completo ?? "—"}</td>
-                    <td className="px-3 py-2 text-epi-muted">{item.entregas.comprovante}</td>
+                {historico.map((linha) => (
+                  <tr key={linha.id} className="border-b border-epi-border last:border-0">
+                    <td className="px-3 py-2 text-epi-ink">{formatarData(linha.data)}</td>
+                    <td className="px-3 py-2 text-epi-ink">
+                      <b>{linha.tipo}</b>
+                      <span className="block text-epi-muted">{linha.detalhe}</span>
+                    </td>
+                    {/* EPI-339: obra em que aconteceu (o funcionário pode ter sido transferido) */}
+                    <td className="px-3 py-2 text-epi-muted">{linha.obra}</td>
+                    <td className="px-3 py-2 text-epi-ink">{linha.epi}</td>
+                    <td className="px-3 py-2 text-epi-muted">{linha.ca || "—"}</td>
+                    <td className="px-3 py-2 text-epi-muted">{formatarDataCa(linha.validadeCa)}</td>
+                    <td className="px-3 py-2 text-epi-muted">
+                      {linha.sinal}
+                      {linha.quantidade}
+                    </td>
+                    <td className="px-3 py-2 text-epi-muted">{linha.aceite || linha.observacao || "—"}</td>
+                    <td className="px-3 py-2 text-epi-muted">{linha.responsavel}</td>
+                    <td className="px-3 py-2 text-epi-muted">{linha.comprovante || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -160,7 +164,7 @@ export default function FichaEpiIndividual() {
             <div className="border-t border-epi-ink pt-1 text-xs text-epi-muted">Data</div>
           </div>
           <p className="mt-6 text-xs text-epi-muted">
-            Registros de entrega não podem ser excluídos. Trocas e devoluções ficam no histórico do colaborador.
+            Registros de entrega, troca, devolução e baixa não podem ser excluídos.
             Gerado pelo EPI360 em {new Date().toLocaleString("pt-BR")}.
           </p>
         </div>

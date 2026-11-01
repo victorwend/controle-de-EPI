@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
-import { rotuloMetodoAceite } from "../../lib/termoRecebimento";
+import { filtrarHistorico, FILTROS_HISTORICO, montarHistorico, SELECT_ENTREGAS, SELECT_TROCAS } from "../../lib/historicoEpi.js";
 
-const FILTROS = ["Todos", "Entregas", "Trocas", "Devoluções"];
+// EPI-342: entregas, trocas, devoluções e baixas reais (antes Trocas e
+// Devoluções ficavam vazias).
 
 function formatarData(dataIso) {
   return new Date(dataIso).toLocaleDateString("pt-BR");
@@ -14,7 +15,8 @@ export default function HistoricoCompleto() {
   const { matricula } = useParams();
   const [funcionario, setFuncionario] = useState(undefined);
   const [historico, setHistorico] = useState([]);
-  const [filtro, setFiltro] = useState("Todos");
+  const [filtro, setFiltro] = useState("");
+  const [emPosse, setEmPosse] = useState(0);
 
   useEffect(() => {
     let ativo = true;
@@ -30,12 +32,15 @@ export default function HistoricoCompleto() {
       setFuncionario(funcionarioData ?? null);
 
       if (funcionarioData) {
-        const { data: itensData } = await supabase
-          .from("entrega_itens")
-          .select("id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, aceite_metodo, usuarios(nome_completo))")
-          .eq("entregas.funcionario_id", funcionarioData.id)
-          .order("id", { ascending: false });
-        if (ativo) setHistorico(itensData ?? []);
+        const [{ data: itensData }, { data: trocasData }, { data: posseData }] = await Promise.all([
+          supabase.from("entrega_itens").select(SELECT_ENTREGAS).eq("entregas.funcionario_id", funcionarioData.id),
+          supabase.from("trocas_devolucoes_itens").select(SELECT_TROCAS).eq("funcionario_id", funcionarioData.id),
+          supabase.from("posse_epi_funcionario").select("quantidade").eq("funcionario_id", funcionarioData.id),
+        ]);
+        if (ativo) {
+          setHistorico(montarHistorico(itensData, trocasData));
+          setEmPosse((posseData ?? []).reduce((total, linha) => total + (linha.quantidade ?? 0), 0));
+        }
       }
     }
 
@@ -45,12 +50,7 @@ export default function HistoricoCompleto() {
     };
   }, [matricula]);
 
-  const historicoFiltrado = useMemo(() => {
-    // Só existe entrega real por enquanto — Trocas/Devoluções ficam
-    // honestamente vazias até esses módulos serem migrados do mock.
-    if (filtro === "Trocas" || filtro === "Devoluções") return [];
-    return historico;
-  }, [historico, filtro]);
+  const historicoFiltrado = useMemo(() => filtrarHistorico(historico, filtro), [historico, filtro]);
 
   if (funcionario === undefined) {
     return (
@@ -86,29 +86,28 @@ export default function HistoricoCompleto() {
           </div>
           <div className="flex gap-6 text-right">
             <div>
-              <p className="text-lg font-semibold text-epi-brand">{historico.length} EPIs ativos</p>
+              <p className="text-lg font-semibold text-epi-brand">{emPosse} EPI(s) em posse</p>
             </div>
             <div>
-              <p className="text-lg font-semibold text-epi-brand">0 pendências</p>
+              <p className="text-lg font-semibold text-epi-brand">{historico.length} movimentações</p>
             </div>
           </div>
         </div>
       </div>
 
       <div className="mt-4 flex max-w-[1060px] flex-wrap gap-2">
-        {FILTROS.map((f) => (
+        {FILTROS_HISTORICO.map((f) => (
           <button
-            key={f}
+            key={f.valor || "todos"}
             type="button"
-            onClick={() => setFiltro(f)}
+            onClick={() => setFiltro(f.valor)}
             className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-              filtro === f ? "bg-[#EBF5F0] text-epi-brand" : "border border-epi-border text-epi-ink"
+              filtro === f.valor ? "bg-[#EBF5F0] text-epi-brand" : "border border-epi-border text-epi-ink"
             }`}
           >
-            {f}
+            {f.label} ({filtrarHistorico(historico, f.valor).length})
           </button>
         ))}
-        <span className="rounded-lg border border-epi-border px-3 py-1.5 text-sm text-epi-muted">Últimos 90 dias</span>
       </div>
 
       <div className="mt-4 max-w-[1060px] overflow-x-auto rounded-xl border border-epi-border bg-white">
@@ -119,26 +118,34 @@ export default function HistoricoCompleto() {
               <th className="px-4 py-3 font-medium">Movimentação</th>
               <th className="px-4 py-3 font-medium">EPI / CA</th>
               <th className="px-4 py-3 font-medium">Qtd.</th>
-              <th className="px-4 py-3 font-medium">Confirmação</th>
+              <th className="px-4 py-3 font-medium">Obra</th>
+              <th className="px-4 py-3 font-medium">Confirmação / observação</th>
               <th className="px-4 py-3 font-medium">Responsável</th>
             </tr>
           </thead>
           <tbody>
-            {historicoFiltrado.map((item) => (
-              <tr key={item.id} className="border-b border-epi-border last:border-0">
-                <td className="px-4 py-3 text-epi-muted">{formatarData(item.entregas.created_at)}</td>
-                <td className="px-4 py-3 font-medium text-epi-ink">Entrega</td>
-                <td className="px-4 py-3 text-epi-muted">
-                  {item.epis?.nome ?? "—"} • CA {item.epis?.ca ?? "—"}
+            {historicoFiltrado.map((linha) => (
+              <tr key={linha.id} className="border-b border-epi-border last:border-0">
+                <td className="px-4 py-3 text-epi-muted">{formatarData(linha.data)}</td>
+                <td className="px-4 py-3 text-epi-ink">
+                  <span className="font-medium">{linha.tipo}</span>
+                  <span className="block text-xs text-epi-muted">{linha.detalhe}</span>
                 </td>
-                <td className="px-4 py-3 text-epi-muted">{item.quantidade}</td>
-                <td className="px-4 py-3 text-epi-muted">{rotuloMetodoAceite(item.entregas.aceite_metodo)}</td>
-                <td className="px-4 py-3 text-epi-muted">{item.entregas.usuarios?.nome_completo ?? "—"}</td>
+                <td className="px-4 py-3 text-epi-muted">
+                  {linha.epi} • CA {linha.ca || "—"}
+                </td>
+                <td className="px-4 py-3 text-epi-muted">
+                  {linha.sinal}
+                  {linha.quantidade}
+                </td>
+                <td className="px-4 py-3 text-epi-muted">{linha.obra}</td>
+                <td className="px-4 py-3 text-epi-muted">{linha.aceite || linha.observacao || "—"}</td>
+                <td className="px-4 py-3 text-epi-muted">{linha.responsavel}</td>
               </tr>
             ))}
             {historicoFiltrado.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-epi-muted">
+                <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
                   Nenhuma movimentação encontrada.
                 </td>
               </tr>

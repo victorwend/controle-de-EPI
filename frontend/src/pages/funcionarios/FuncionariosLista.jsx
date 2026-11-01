@@ -6,6 +6,7 @@ import { contarInativos, filtrarFuncionarios } from "../../lib/funcionarios.js";
 import { formatarData } from "../../lib/termoRecebimento.js";
 import SePuder from "../../components/SePuder.jsx";
 import { agruparItensPorFuncionario, emPedacos, montarFichasEpi } from "../../lib/fichaEpi.js";
+import { agruparTrocasPorFuncionario, SELECT_ENTREGAS, SELECT_TROCAS } from "../../lib/historicoEpi.js";
 
 // EPI-330: funcionário INATIVO (desligado) não aparece na lista nem na
 // busca; só com o filtro "Mostrar inativos". Para inativar, abra a ficha.
@@ -98,15 +99,17 @@ export default function FuncionariosLista() {
       const ids = escolhidos.map((funcionario) => funcionario.id);
 
       const itens = [];
+      const trocas = [];
       for (const pedaco of emPedacos(ids, 100)) {
-        const { data, error } = await supabase
-          .from("entrega_itens")
-          .select(
-            "id, quantidade, epis(nome, ca, validade_ca), entregas!inner(funcionario_id, created_at, comprovante, aceite_metodo, usuarios(nome_completo), obras(nome))"
-          )
-          .in("entregas.funcionario_id", pedaco);
+        // EPI-342: entregas E trocas/devoluções/baixas de cada um.
+        const [{ data, error }, { data: trocasData, error: erroTrocas }] = await Promise.all([
+          supabase.from("entrega_itens").select(SELECT_ENTREGAS).in("entregas.funcionario_id", pedaco),
+          supabase.from("trocas_devolucoes_itens").select(SELECT_TROCAS).in("funcionario_id", pedaco),
+        ]);
         if (error) throw error;
+        if (erroTrocas) throw erroTrocas;
         itens.push(...(data ?? []));
+        trocas.push(...(trocasData ?? []));
       }
       const { data: empresaData } = await supabase.from("empresas").select("razao_social").limit(1);
 
@@ -114,6 +117,7 @@ export default function FuncionariosLista() {
         empresa: empresaData?.[0]?.razao_social ?? "",
         funcionarios: escolhidos,
         itensPorFuncionario: agruparItensPorFuncionario(itens),
+        trocasPorFuncionario: agruparTrocasPorFuncionario(trocas),
       });
 
       janela.document.open();
