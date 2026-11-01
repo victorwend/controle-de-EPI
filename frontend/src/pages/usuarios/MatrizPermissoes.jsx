@@ -1,27 +1,33 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import {
   marcarAcao,
   MATRIZ_PERMISSOES,
   montarEstado,
-  PERFIS,
+  PERFIS_CONFIGURAVEIS,
   perfisAlterados,
   permissoesPadrao,
   rotuloPerfil,
 } from "../../lib/permissoes.js";
 
-// "O que cada perfil pode fazer" com caixinhas (EPI-331).
+// "O que cada perfil pode fazer" (EPI-331, EPI-333).
 //
-// O Administrador marca/desmarca e clica em Salvar. Cada perfil alterado
-// é gravado pela função salvar_permissoes_perfil (correção 19), que
-// confere tudo de novo no banco. Linhas "fixas" não têm caixinha.
+// EPI-336: para a tela não ficar poluída, a configuração fica fechada
+// atrás do botão "Configurar permissões dos perfis". Aberta, primeiro se
+// escolhe o PERFIL (botões no topo) e só aparecem as caixinhas dele,
+// separadas em "Abas do menu" e "O que pode fazer".
+//
+// Ao salvar, cada perfil alterado é gravado pela função
+// salvar_permissoes_perfil (correções 19 e 20), que confere tudo no banco.
 
-const TITULOS_GRUPO = {
-  abas: "Abas do menu (o que aparece para o perfil)",
-  acoes: "O que o perfil pode fazer",
-};
+const GRUPOS = [
+  { id: "abas", titulo: "Abas do menu", descricao: "O que aparece no menu para este perfil." },
+  { id: "acoes", titulo: "O que pode fazer", descricao: "Ações que este perfil pode realizar." },
+];
 
 export default function MatrizPermissoes() {
+  const [aberto, setAberto] = useState(false);
+  const [perfil, setPerfil] = useState(PERFIS_CONFIGURAVEIS[0]);
   const [salvo, setSalvo] = useState(null);
   const [atual, setAtual] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -43,17 +49,9 @@ export default function MatrizPermissoes() {
     carregar();
   }, []);
 
-  if (!atual) {
-    return (
-      <section className="mt-10 max-w-[1060px] text-sm text-epi-muted">
-        {erro || "Carregando permissões..."}
-      </section>
-    );
-  }
+  const alterados = atual ? perfisAlterados(salvo, atual) : [];
 
-  const alterados = perfisAlterados(salvo, atual);
-
-  function alternar(perfil, chave, marcado) {
+  function alternar(chave, marcado) {
     setAviso("");
     setErro("");
     setAtual((estado) => marcarAcao(estado, perfil, chave, marcado));
@@ -63,11 +61,14 @@ export default function MatrizPermissoes() {
     setErro("");
     setAviso("");
     setSalvando(true);
-    for (const perfil of alterados) {
-      const { error } = await supabase.rpc("salvar_permissoes_perfil", { p_perfil: perfil, p_acoes: atual[perfil] });
+    for (const perfilAlterado of alterados) {
+      const { error } = await supabase.rpc("salvar_permissoes_perfil", {
+        p_perfil: perfilAlterado,
+        p_acoes: atual[perfilAlterado],
+      });
       if (error) {
         setSalvando(false);
-        setErro(`Não foi possível salvar o perfil ${rotuloPerfil(perfil)}: ${error.message}`);
+        setErro(`Não foi possível salvar o perfil ${rotuloPerfil(perfilAlterado)}: ${error.message}`);
         await carregar();
         return;
       }
@@ -78,108 +79,143 @@ export default function MatrizPermissoes() {
   }
 
   return (
-    <section className="mt-10 max-w-[1060px]">
-      <h2 className="text-lg font-semibold text-epi-ink">O que cada perfil pode fazer</h2>
-      <p className="mt-1 text-sm text-epi-muted">
-        Marque as <b>abas</b> que cada perfil vê no menu e o que ele <b>pode fazer</b>, e clique em{" "}
-        <b>Salvar permissões</b>. Aba desmarcada some do menu. Dar uma ação libera a aba dela junto. O Administrador
-        sempre pode tudo. As linhas sem caixinha são fixas, por segurança. Fora quem tem &quot;Ver todas as obras&quot;, cada usuário só age nas
-        obras liberadas para ele.
-      </p>
+    <section className="mt-10 max-w-[1060px] rounded-xl border border-epi-border bg-white">
+      {/* Cabeçalho: abre e fecha a configuração */}
+      <button
+        type="button"
+        onClick={() => setAberto((valor) => !valor)}
+        aria-expanded={aberto}
+        className="flex w-full items-center justify-between px-6 py-5 text-left"
+      >
+        <span>
+          <span className="block text-lg font-semibold text-epi-ink">Permissões dos perfis</span>
+          <span className="mt-1 block text-sm text-epi-muted">
+            Escolha as abas que cada perfil vê e o que ele pode fazer.
+            {alterados.length > 0 && <b className="text-amber-700"> Há alterações não salvas.</b>}
+          </span>
+        </span>
+        <span className="whitespace-nowrap rounded-lg border border-epi-border px-3 py-2 text-sm font-semibold text-epi-ink">
+          {aberto ? "Fechar ▲" : "Configurar ▼"}
+        </span>
+      </button>
 
-      {erro && <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>}
-      {aviso && <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{aviso}</p>}
+      {aberto && (
+        <div className="border-t border-epi-border px-6 py-5">
+          {!atual ? (
+            <p className="text-sm text-epi-muted">{erro || "Carregando permissões..."}</p>
+          ) : (
+            <>
+              {/* Escolha do perfil */}
+              <p className="text-[13px] font-medium text-epi-ink">Perfil</p>
+              <div className="mt-2 flex flex-wrap gap-2" role="tablist">
+                {PERFIS_CONFIGURAVEIS.map((opcao) => (
+                  <button
+                    key={opcao}
+                    type="button"
+                    role="tab"
+                    aria-selected={perfil === opcao}
+                    onClick={() => setPerfil(opcao)}
+                    className={`rounded-full border px-4 py-2 text-sm ${
+                      perfil === opcao
+                        ? "border-epi-brand bg-epi-brand font-semibold text-white"
+                        : "border-epi-border bg-white text-epi-ink hover:bg-epi-paper"
+                    }`}
+                  >
+                    {rotuloPerfil(opcao)}
+                    {alterados.includes(opcao) && " •"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-epi-muted">
+                O Administrador pode tudo e não precisa de configuração. O ponto (•) marca o perfil com alterações não
+                salvas.
+              </p>
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-epi-border bg-white">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b border-epi-border text-xs uppercase text-epi-muted">
-            <tr>
-              <th className="px-4 py-3">Ação</th>
-              {PERFIS.map((perfil) => (
-                <th key={perfil.valor} className="px-4 py-3 text-center">
-                  {perfil.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {MATRIZ_PERMISSOES.map((linha, indice) => (
-              <Fragment key={linha.acao}>
-                {/* EPI-333: título de cada grupo (abas do menu / o que pode fazer) */}
-                {MATRIZ_PERMISSOES[indice - 1]?.grupo !== linha.grupo && (
-                  <tr className="border-b border-epi-border bg-epi-paper">
-                    <td colSpan={PERFIS.length + 1} className="px-4 py-2 text-xs font-semibold uppercase text-epi-muted">
-                      {TITULOS_GRUPO[linha.grupo]}
-                    </td>
-                  </tr>
-                )}
-                <tr className="border-b border-epi-border last:border-0">
-                  <td className="px-4 py-3 text-epi-ink">
-                    {linha.acao}
-                    <span className="block text-xs text-epi-muted">{linha.detalhe}</span>
-                  </td>
-                  {PERFIS.map((perfil) => {
-                    const fixo = linha.fixa || perfil.valor === "administrador";
-                    const marcado = linha.fixa
-                      ? linha.perfis.includes(perfil.valor)
-                      : perfil.valor === "administrador" || (atual[perfil.valor] ?? []).includes(linha.chave);
-                    return (
-                      <td key={perfil.valor} className="px-4 py-3 text-center">
-                        <input
-                          type="checkbox"
-                          checked={marcado}
-                          disabled={fixo || salvando}
-                          title={fixo ? "Fixo: não pode ser alterado" : ""}
-                          aria-label={`${linha.acao} — ${perfil.label}`}
-                          onChange={(event) => alternar(perfil.valor, linha.chave, event.target.checked)}
-                          className="h-4 w-4 accent-epi-brand disabled:opacity-50"
-                        />
-                      </td>
-                    );
-                  })}
-                </tr>
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              {erro && <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{erro}</p>}
+              {aviso && (
+                <p className="mt-4 rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">{aviso}</p>
+              )}
 
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          disabled={salvando}
-          onClick={() => {
-            setAviso("");
-            setAtual(permissoesPadrao());
-          }}
-          className="text-sm font-semibold text-epi-muted hover:text-epi-ink"
-        >
-          Voltar ao padrão
-        </button>
-        <div className="flex items-center gap-3">
-          {alterados.length > 0 && (
-            <span className="text-sm text-epi-muted">
-              Alterações não salvas: {alterados.map((perfil) => rotuloPerfil(perfil)).join(", ")}
-            </span>
+              {/* Caixinhas do perfil escolhido */}
+              <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
+                {GRUPOS.map((grupo) => (
+                  <div key={grupo.id} className="rounded-lg border border-epi-border p-4">
+                    <p className="text-sm font-semibold text-epi-ink">{grupo.titulo}</p>
+                    <p className="text-xs text-epi-muted">{grupo.descricao}</p>
+                    <div className="mt-3 space-y-3">
+                      {MATRIZ_PERMISSOES.filter((linha) => linha.grupo === grupo.id).map((linha) => {
+                        const marcado = linha.fixa
+                          ? linha.perfis.includes(perfil)
+                          : (atual[perfil] ?? []).includes(linha.chave);
+                        return (
+                          <label
+                            key={linha.acao}
+                            className={`flex items-start gap-3 text-sm ${linha.fixa ? "text-epi-muted" : "text-epi-ink"}`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={marcado}
+                              disabled={linha.fixa || salvando}
+                              onChange={(event) => alternar(linha.chave, event.target.checked)}
+                              className="mt-0.5 h-4 w-4 accent-epi-brand disabled:opacity-50"
+                            />
+                            <span>
+                              {linha.acao}
+                              <span className="block text-xs text-epi-muted">{linha.detalhe}</span>
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-4 text-xs text-epi-muted">
+                Dar uma ação libera a aba dela junto (ex.: &quot;Entregar EPI&quot; marca a aba &quot;Entregas de EPI&quot;).
+                Fora quem tem &quot;Ver todas as obras&quot;, cada usuário só age nas obras liberadas para ele.
+              </p>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-epi-border pt-4">
+                <button
+                  type="button"
+                  disabled={salvando}
+                  onClick={() => {
+                    setAviso("");
+                    setAtual((estado) => ({ ...estado, [perfil]: permissoesPadrao()[perfil] }));
+                  }}
+                  className="text-sm font-semibold text-epi-muted hover:text-epi-ink"
+                >
+                  Voltar ao padrão deste perfil
+                </button>
+                <div className="flex items-center gap-3">
+                  {alterados.length > 0 && (
+                    <span className="text-sm text-epi-muted">
+                      Não salvo: {alterados.map((item) => rotuloPerfil(item)).join(", ")}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    disabled={salvando || alterados.length === 0}
+                    onClick={() => setAtual(salvo)}
+                    className="rounded-lg border border-epi-border px-4 py-2 text-sm font-medium text-epi-ink disabled:opacity-50"
+                  >
+                    Descartar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={salvando || alterados.length === 0}
+                    onClick={salvar}
+                    className="rounded-lg bg-epi-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    {salvando ? "Salvando..." : "Salvar permissões"}
+                  </button>
+                </div>
+              </div>
+            </>
           )}
-          <button
-            type="button"
-            disabled={salvando || alterados.length === 0}
-            onClick={() => setAtual(salvo)}
-            className="rounded-lg border border-epi-border px-4 py-2 text-sm font-medium text-epi-ink disabled:opacity-50"
-          >
-            Descartar
-          </button>
-          <button
-            type="button"
-            disabled={salvando || alterados.length === 0}
-            onClick={salvar}
-            className="rounded-lg bg-epi-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-          >
-            {salvando ? "Salvando..." : "Salvar permissões"}
-          </button>
         </div>
-      </div>
+      )}
     </section>
   );
 }
