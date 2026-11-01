@@ -137,7 +137,7 @@ export default function FichaFuncionario() {
           </Link>
           {estaAtivo && (
             <SePuder acao="registrar_entregas">
-              <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+              <Link to={`/entregas/nova?funcionario=${encodeURIComponent(funcionario.matricula)}`} className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
                 + Registrar entrega
               </Link>
             </SePuder>
