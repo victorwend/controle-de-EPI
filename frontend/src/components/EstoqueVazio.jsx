@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import SePuder from "./SePuder.jsx";
 
 export default function EstoqueVazio({ onLimparFiltros }) {
   return (
@@ -13,12 +14,14 @@ export default function EstoqueVazio({ onLimparFiltros }) {
         >
           Limpar filtros
         </button>
-        <Link
-          to="/estoque/entrada"
-          className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-        >
-          Registrar entrada
-        </Link>
+        <SePuder acao="gerenciar_estoque">
+          <Link
+            to="/estoque/entrada"
+            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+          >
+            Registrar entrada
+          </Link>
+        </SePuder>
       </div>
     </div>
   );

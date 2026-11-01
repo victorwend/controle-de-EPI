@@ -28,7 +28,11 @@ export function AuthProvider({ children }) {
 
     const { data } = await supabase
       .from("usuarios")
-      .select("id, empresa_id, nome_completo, perfil, status")
+      // "*" (todas as colunas do PRÓPRIO usuário) em vez de uma lista fixa:
+      // se o código chegar antes da correção SQL que cria uma coluna nova
+      // (ex.: trocar_senha, correção 22), a consulta não quebra e o menu
+      // não some. A coluna que ainda não existe só vem vazia.
+      .select("*")
       .eq("id", sessionAtual.user.id)
       .maybeSingle();
 
@@ -75,8 +79,14 @@ export function AuthProvider({ children }) {
   // botões: quem garante a regra é o banco.
   const pode = useCallback((acao) => podeFazer(usuario?.perfil, acao, minhasAcoes), [usuario, minhasAcoes]);
 
+  // EPI-335: recarrega o usuário (ex.: depois de trocar a senha temporária).
+  const recarregarUsuario = useCallback(async () => {
+    const { data } = await supabase.auth.getSession();
+    await carregarPerfil(data.session);
+  }, [carregarPerfil]);
+
   return (
-    <AuthContext.Provider value={{ session, usuario, temObra, loading, refreshTemObra, pode }}>
+    <AuthContext.Provider value={{ session, usuario, temObra, loading, refreshTemObra, pode, recarregarUsuario }}>
       {children}
     </AuthContext.Provider>
   );

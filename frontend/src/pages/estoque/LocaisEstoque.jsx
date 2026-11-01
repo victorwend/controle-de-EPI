@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
+import SePuder from "../../components/SePuder.jsx";
 
 // Gerenciar locais de estoque (EPI-326): ver todos os locais, editar,
 // inativar e reativar. Local não é apagado (pode ter histórico de
@@ -240,9 +241,11 @@ export default function LocaisEstoque() {
       <p className="mt-3 max-w-[1060px] text-xs text-epi-muted">
         Só é possível excluir local <b>inativo</b>, <b>sem estoque</b> e que <b>nunca foi usado</b> (local cadastrado
         por engano). Local com histórico fica inativo. Para inativar um local que ainda tem EPIs, use{" "}
-        <Link to="/estoque/transferencia" className="font-semibold text-epi-brand">
-          Transferir
-        </Link>{" "}
+        <SePuder acao="gerenciar_estoque">
+          <Link to="/estoque/transferencia" className="font-semibold text-epi-brand">
+            Transferir
+          </Link>
+        </SePuder>{" "}
         e leve o saldo para outro local.
       </p>
 

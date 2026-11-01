@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import RequireAuth from "./components/RequireAuth.jsx";
+import RequireAba from "./components/RequireAba.jsx";
 import Login from "./pages/Login.jsx";
 import Cadastro from "./pages/Cadastro.jsx";
 import DefinirSenha from "./pages/DefinirSenha.jsx";
@@ -45,39 +46,44 @@ export default function App() {
           <Route path="/definir-senha" element={<DefinirSenha />} />
 
           <Route element={<RequireAuth />}>
-            <Route path="/obras/nova" element={<NovaObra />} />
-            <Route path="/cadastros" element={<CadastrosCentral />} />
-            <Route path="/cadastros/biometria" element={<BiometriaCadastro />} />
-            {/* EPI-332: o convite fica dentro de Usuários e permissões; o endereço antigo redireciona */}
-            <Route path="/cadastros/usuario" element={<Navigate to="/usuarios/convidar" replace />} />
-            <Route path="/cadastros/:tipo" element={<CadastroMestre />} />
-            <Route path="/obras" element={<ObrasLista />} />
-            <Route path="/obras/:slug" element={<ObraDetalhe />} />
-            <Route path="/funcionarios" element={<FuncionariosLista />} />
-            <Route path="/funcionarios/novo" element={<NovoFuncionario />} />
-            <Route path="/funcionarios/importar" element={<ImportarFuncionarios />} />
-            <Route path="/funcionarios/:matricula" element={<FichaFuncionario />} />
-            <Route path="/funcionarios/:matricula/historico" element={<HistoricoCompleto />} />
-            <Route path="/funcionarios/:matricula/ficha-epi" element={<FichaEpiIndividual />} />
-            <Route path="/epis-cas" element={<EpisLista />} />
-            <Route path="/epis-cas/novo" element={<NovoEpi />} />
-            <Route path="/epis-cas/matriz" element={<MatrizEpiFuncao />} />
-            <Route path="/visao-geral" element={<Dashboard />} />
-            <Route path="/entregas" element={<EntregasLista />} />
-            <Route path="/entregas/nova" element={<NovaEntrega />} />
-            <Route path="/entregas/troca-devolucao" element={<TrocaDevolucao />} />
-            <Route path="/entregas/lote" element={<LoteEntrega />} />
-            <Route path="/estoque" element={<EstoquePorLocal />} />
-            <Route path="/estoque/entrada" element={<EntradaEstoque />} />
-            <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />
-            <Route path="/estoque/transferencia" element={<TransferenciaEstoque />} />
-            <Route path="/estoque/locais" element={<LocaisEstoque />} />
-            <Route path="/estoque/locais/novo" element={<NovoLocalEstoque />} />
-            <Route path="/estoque/locais/:id/editar" element={<NovoLocalEstoque />} />
-            <Route path="/relatorios" element={<RelatoriosPainel />} />
-            <Route path="/usuarios" element={<UsuariosPermissoes />} />
-            <Route path="/usuarios/convidar" element={<NovoUsuario />} />
-            <Route path="/configuracoes" element={<Placeholder />} />
+            {/* EPI-333: cada aba só abre se estiver liberada para o perfil */}
+            <Route element={<RequireAba />}>
+              <Route path="/obras/nova" element={<NovaObra />} />
+              <Route path="/cadastros" element={<CadastrosCentral />} />
+              <Route path="/cadastros/biometria" element={<BiometriaCadastro />} />
+              {/* EPI-332: o convite fica dentro de Usuários e permissões; o endereço antigo redireciona */}
+              <Route path="/cadastros/usuario" element={<Navigate to="/usuarios/convidar" replace />} />
+              <Route path="/cadastros/:tipo" element={<CadastroMestre />} />
+              <Route path="/obras" element={<ObrasLista />} />
+              <Route path="/obras/:slug" element={<ObraDetalhe />} />
+              <Route path="/funcionarios" element={<FuncionariosLista />} />
+              <Route path="/funcionarios/novo" element={<NovoFuncionario />} />
+              <Route path="/funcionarios/importar" element={<ImportarFuncionarios />} />
+              <Route path="/funcionarios/:matricula" element={<FichaFuncionario />} />
+              <Route path="/funcionarios/:matricula/historico" element={<HistoricoCompleto />} />
+              <Route path="/funcionarios/:matricula/ficha-epi" element={<FichaEpiIndividual />} />
+              <Route path="/epis-cas" element={<EpisLista />} />
+              <Route path="/epis-cas/novo" element={<NovoEpi />} />
+              <Route path="/epis-cas/matriz" element={<MatrizEpiFuncao />} />
+              <Route path="/visao-geral" element={<Dashboard />} />
+              <Route path="/entregas" element={<EntregasLista />} />
+              <Route path="/entregas/nova" element={<NovaEntrega />} />
+              <Route path="/entregas/troca-devolucao" element={<TrocaDevolucao />} />
+              <Route path="/entregas/lote" element={<LoteEntrega />} />
+              <Route path="/estoque" element={<EstoquePorLocal />} />
+              <Route path="/estoque/entrada" element={<EntradaEstoque />} />
+              <Route path="/estoque/movimentacoes" element={<MovimentacoesEstoque />} />
+              <Route path="/estoque/transferencia" element={<TransferenciaEstoque />} />
+              <Route path="/estoque/locais" element={<LocaisEstoque />} />
+              <Route path="/estoque/locais/novo" element={<NovoLocalEstoque />} />
+              <Route path="/estoque/locais/:id/editar" element={<NovoLocalEstoque />} />
+              <Route path="/relatorios" element={<RelatoriosPainel />} />
+            </Route>
+            <Route element={<RequireAba somenteAdministrador />}>
+              <Route path="/usuarios" element={<UsuariosPermissoes />} />
+              <Route path="/usuarios/convidar" element={<NovoUsuario />} />
+              <Route path="/configuracoes" element={<Placeholder />} />
+            </Route>
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -12,11 +12,12 @@ import AppShell from "../../layouts/AppShell.jsx";
 //   - Matriz EPI x Função             -> menu EPIs e CAs (botão "Matriz EPI x Função").
 // EPI-332 (01/11/2026): saiu também "Usuários e permissões", que tem item
 // próprio no menu lateral (só para o Administrador, EPI-329).
+// EPI-280 (01/11/2026): "Cargos / Funções" saiu: as funções são criadas na
+// Matriz EPI x Função (menu EPIs e CAs), que é o cadastro real.
 // Fica aqui só o que não tem outro caminho. Diverge do protótipo 09.01 do
 // Figma, que precisa ser atualizado.
 const TILES = [
   { label: "Fornecedores", to: "/cadastros/fornecedor" },
-  { label: "Cargos / Funções", to: "/cadastros/cargo" },
   { label: "Setores / Centros de custo", to: "/cadastros/setor" },
   { label: "Categorias de EPI", to: "/cadastros/categoria-epi" },
   { label: "Motivos de movimentação", to: "/cadastros/motivo-movimentacao" },

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../layouts/AppShell.jsx";
 import { supabase } from "../lib/supabaseClient";
+import SePuder from "../components/SePuder.jsx";
 
 const AÇÕES_RÁPIDAS = [
   { label: "Registrar entrega", to: "/entregas/nova" },
@@ -32,9 +33,11 @@ export default function Dashboard() {
         <p className="text-sm text-epi-muted">
           {totalObras === null ? "Carregando obras..." : `${totalObras} obra(s) cadastrada(s)`}
         </p>
-        <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
-          + Nova entrega
-        </Link>
+        <SePuder acao="registrar_entregas">
+          <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+            + Nova entrega
+          </Link>
+        </SePuder>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -55,9 +58,11 @@ export default function Dashboard() {
           <div className="mt-4 rounded-lg border border-dashed border-epi-border p-6 text-center text-sm text-epi-muted">
             Nenhuma movimentação registrada ainda.
             <br />
-            <Link to="/entregas/nova" className="mt-2 inline-block font-semibold text-epi-brand">
-              Registrar a primeira entrega
-            </Link>
+            <SePuder acao="registrar_entregas">
+              <Link to="/entregas/nova" className="mt-2 inline-block font-semibold text-epi-brand">
+                Registrar a primeira entrega
+              </Link>
+            </SePuder>
           </div>
         </div>
 

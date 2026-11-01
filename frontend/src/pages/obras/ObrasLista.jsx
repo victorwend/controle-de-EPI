@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { OBRAS_RESUMO } from "../../data/obrasConfig.js";
+import SePuder from "../../components/SePuder.jsx";
 
 export default function ObrasLista() {
   return (
@@ -12,12 +13,14 @@ export default function ObrasLista() {
             Organize colaboradores, estoques e movimentações por obra.
           </p>
         </div>
-        <Link
-          to="/obras/nova"
-          className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-        >
-          + Nova obra
-        </Link>
+        <SePuder acao="gerenciar_obras">
+          <Link
+            to="/obras/nova"
+            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+          >
+            + Nova obra
+          </Link>
+        </SePuder>
       </div>
 
       <div className="grid max-w-[1060px] grid-cols-1 gap-6 md:grid-cols-2">

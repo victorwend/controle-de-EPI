@@ -5,9 +5,14 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { formatarData as formatarDia } from "../../lib/termoRecebimento.js";
 import { hojeIso, MOTIVOS_DESLIGAMENTO, textoMotivo, validarDesligamento } from "../../lib/funcionarios.js";
+import SePuder from "../../components/SePuder.jsx";
+import TransferirFuncionario from "./TransferirFuncionario.jsx";
 
 // EPI-330: o Administrador inativa o funcionário desligado (data e motivo)
 // ou o reativa. Funcionário não é apagado: o histórico de EPIs fica.
+//
+// EPI-339: o Administrador TRANSFERE o funcionário de obra. O histórico
+// mostra a obra de cada entrega e a lista de transferências.
 
 function formatarData(dataIso) {
   return new Date(dataIso).toLocaleDateString("pt-BR");
@@ -15,8 +20,12 @@ function formatarData(dataIso) {
 
 export default function FichaFuncionario() {
   const { matricula } = useParams();
-  const { pode } = useAuth();
+  const { pode, usuario } = useAuth();
   const podeGerenciar = pode("gerenciar_funcionarios");
+  const ehAdministrador = usuario?.perfil === "administrador";
+  const [transferindo, setTransferindo] = useState(false);
+  const [avisoTransferencia, setAvisoTransferencia] = useState("");
+  const [transferencias, setTransferencias] = useState([]);
   const [funcionario, setFuncionario] = useState(undefined);
   const [historico, setHistorico] = useState([]);
   const [emPosse, setEmPosse] = useState(0);
@@ -28,7 +37,7 @@ export default function FichaFuncionario() {
     async function carregar() {
       const { data: funcionarioData } = await supabase
         .from("funcionarios")
-        .select("id, matricula, nome, funcao, status, data_admissao, data_desligamento, motivo_desligamento, obras(nome)")
+        .select("id, matricula, nome, funcao, status, obra_id, data_admissao, data_desligamento, motivo_desligamento, obras(nome)")
         .eq("matricula", matricula)
         .maybeSingle();
 
@@ -38,14 +47,25 @@ export default function FichaFuncionario() {
       if (funcionarioData) {
         const { data: itensData } = await supabase
           .from("entrega_itens")
-          .select("id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, responsavel_usuario_id, usuarios(nome_completo))")
+          .select(
+            "id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, responsavel_usuario_id, usuarios(nome_completo), obras(nome))"
+          )
           .eq("entregas.funcionario_id", funcionarioData.id)
           .order("id", { ascending: false });
         const { data: posseData } = await supabase
           .from("posse_epi_funcionario")
           .select("quantidade")
           .eq("funcionario_id", funcionarioData.id);
+        // EPI-339: histórico de transferências entre obras.
+        const { data: transferenciasData } = await supabase
+          .from("funcionario_transferencias")
+          .select(
+            "id, data_transferencia, motivo, origem:obras!funcionario_transferencias_obra_origem_id_fkey(nome), destino:obras!funcionario_transferencias_obra_destino_id_fkey(nome), usuarios(nome_completo)"
+          )
+          .eq("funcionario_id", funcionarioData.id)
+          .order("data_transferencia", { ascending: false });
         if (ativo) {
+          setTransferencias(transferenciasData ?? []);
           setHistorico(itensData ?? []);
           setEmPosse((posseData ?? []).reduce((total, linha) => total + (linha.quantidade ?? 0), 0));
         }
@@ -93,14 +113,19 @@ export default function FichaFuncionario() {
           </p>
         </div>
         <div className="flex gap-3">
-          <button
-            type="button"
-            disabled
-            title="Ainda não implementado — ver Sprint 5 (04.05) no plano de produção"
-            className="cursor-not-allowed rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-muted opacity-60"
-          >
-            Transferir funcionário
-          </button>
+          {/* EPI-339: só o Administrador transfere, e só funcionário ativo */}
+          {ehAdministrador && estaAtivo && (
+            <button
+              type="button"
+              onClick={() => {
+                setAvisoTransferencia("");
+                setTransferindo(true);
+              }}
+              className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink hover:bg-epi-paper"
+            >
+              Transferir funcionário
+            </button>
+          )}
           <Link
             to={`/funcionarios/${funcionario.matricula}/historico`}
             className="rounded-lg border border-epi-border px-4 py-2.5 text-sm font-medium text-epi-ink"
@@ -108,12 +133,32 @@ export default function FichaFuncionario() {
             Histórico completo
           </Link>
           {estaAtivo && (
-            <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
-              + Registrar entrega
-            </Link>
+            <SePuder acao="registrar_entregas">
+              <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                + Registrar entrega
+              </Link>
+            </SePuder>
           )}
         </div>
       </div>
+
+      {avisoTransferencia && (
+        <p className="mb-6 max-w-[1060px] rounded-lg bg-green-50 px-4 py-3 text-sm font-semibold text-green-800">
+          {avisoTransferencia}
+        </p>
+      )}
+      {transferindo && (
+        <TransferirFuncionario
+          funcionario={funcionario}
+          obraAtualId={funcionario.obra_id}
+          onCancelar={() => setTransferindo(false)}
+          onTransferido={(mensagem) => {
+            setTransferindo(false);
+            setAvisoTransferencia(mensagem);
+            setRecarregar((n) => n + 1);
+          }}
+        />
+      )}
 
       {!estaAtivo && (
         <div className="mb-6 max-w-[1060px] rounded-xl border border-epi-border bg-epi-paper px-5 py-4 text-sm text-epi-ink">
@@ -148,6 +193,7 @@ export default function FichaFuncionario() {
                 <thead>
                   <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
                     <th className="py-2 pr-4 font-medium">Data</th>
+                    <th className="py-2 pr-4 font-medium">Obra</th>
                     <th className="py-2 pr-4 font-medium">EPI</th>
                     <th className="py-2 pr-4 font-medium">CA</th>
                     <th className="py-2 pr-4 font-medium">Qtd.</th>
@@ -158,6 +204,7 @@ export default function FichaFuncionario() {
                   {historico.map((item) => (
                     <tr key={item.id} className="border-b border-epi-border text-epi-ink last:border-0">
                       <td className="py-2.5 pr-4 text-epi-muted">{formatarData(item.entregas.created_at)}</td>
+                      <td className="py-2.5 pr-4 text-epi-muted">{item.entregas.obras?.nome ?? "Sede"}</td>
                       <td className="py-2.5 pr-4 font-medium">{item.epis?.nome ?? "—"}</td>
                       <td className="py-2.5 pr-4 text-epi-muted">{item.epis?.ca ?? "—"}</td>
                       <td className="py-2.5 pr-4 text-epi-muted">{item.quantidade}</td>
@@ -186,6 +233,34 @@ export default function FichaFuncionario() {
           </Link>
         </div>
       </div>
+
+      {transferencias.length > 0 && (
+        <div className="mt-6 max-w-[1060px] rounded-xl border border-epi-border bg-white p-6">
+          <h3 className="text-sm font-semibold text-epi-ink">Histórico de obras</h3>
+          <table className="mt-3 w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
+                <th className="py-2 pr-4 font-medium">Data</th>
+                <th className="py-2 pr-4 font-medium">De</th>
+                <th className="py-2 pr-4 font-medium">Para</th>
+                <th className="py-2 pr-4 font-medium">Motivo</th>
+                <th className="py-2 font-medium">Feita por</th>
+              </tr>
+            </thead>
+            <tbody>
+              {transferencias.map((item) => (
+                <tr key={item.id} className="border-b border-epi-border last:border-0">
+                  <td className="py-2.5 pr-4 text-epi-muted">{formatarDia(item.data_transferencia)}</td>
+                  <td className="py-2.5 pr-4 text-epi-ink">{item.origem?.nome ?? "Sede"}</td>
+                  <td className="py-2.5 pr-4 font-medium text-epi-ink">{item.destino?.nome ?? "—"}</td>
+                  <td className="py-2.5 pr-4 text-epi-muted">{item.motivo || "—"}</td>
+                  <td className="py-2.5 text-epi-muted">{item.usuarios?.nome_completo ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {podeGerenciar && (
         <SituacaoFuncionario
@@ -291,9 +366,11 @@ function SituacaoFuncionario({ funcionario, emPosse, onAlterado }) {
             <p className="mb-4 rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-800">
               Este funcionário ainda tem <b>{emPosse} EPI(s) em posse</b>. O ideal é registrar a devolução antes de
               inativar:{" "}
-              <Link to="/entregas/troca-devolucao" className="font-semibold underline">
-                Troca / devolução
-              </Link>
+              <SePuder acao="registrar_entregas">
+                <Link to="/entregas/troca-devolucao" className="font-semibold underline">
+                  Troca / devolução
+                </Link>
+              </SePuder>
               .
             </p>
           )}

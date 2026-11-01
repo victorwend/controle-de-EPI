@@ -15,7 +15,8 @@ import { imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib
 // no banco (ver supabase/14_metodo_aceite.sql).
 const BIOMETRIA_ATIVA = false;
 const METODO_ACEITE = "confirmacao_responsavel";
-import { MATRIZ_POR_FUNCAO } from "../../data/episConfig.js";
+import { itensSugeridos } from "../../lib/matriz.js";
+import SePuder from "../../components/SePuder.jsx";
 
 // Wizard de entrega individual (03.02 → 03.03 → 03.04), com a confirmação biométrica
 // (03.05/03.09–03.12) como um sub-passo interno e o bloqueio por saldo insuficiente
@@ -56,7 +57,7 @@ export default function NovaEntrega() {
       const [{ data: funcionariosData }, { data: episData }, { data: empresaData }] = await Promise.all([
         supabase
           .from("funcionarios")
-          .select("id, matricula, nome, funcao, setor, biometria_cadastrada, obras(nome)")
+          .select("id, matricula, nome, funcao, funcao_id, setor, biometria_cadastrada, obras(nome)")
           .eq("status", "ativo")
           .order("nome"),
         supabase.from("epis").select("id, nome, ca, validade_ca, estoque_minimo").order("nome"),
@@ -103,18 +104,26 @@ export default function NovaEntrega() {
   });
   const itensComProblema = itens.filter((item) => item.qtd > saldoDe(item.epiId));
 
-  function selecionarFuncionario(f) {
+  // EPI-280: os EPIs da função do funcionário (Matriz EPI x Função) já
+  // vêm preenchidos, com a quantidade da matriz. Dá para tirar ou mudar.
+  async function selecionarFuncionario(f) {
     setFuncionario(f);
     setBusca(`${f.nome} • Matrícula ${f.matricula}`);
-    const matriz = MATRIZ_POR_FUNCAO[f.funcao];
-    if (!matriz) {
+    if (!f.funcao_id) {
       setItens([]);
       return;
     }
-    const sugeridos = matriz
-      .map((m) => epis.find((e) => e.nome === m.epi))
-      .filter(Boolean)
-      .map((epi) => ({ epiId: epi.id, nome: epi.nome, ca: epi.ca, validadeCa: epi.validade_ca, qtd: 1 }));
+    const { data } = await supabase
+      .from("matriz_epi_funcao")
+      .select("epi_id, quantidade, obrigatorio")
+      .eq("funcao_id", f.funcao_id);
+    const sugeridos = itensSugeridos(data, epis).map((item) => ({
+      epiId: item.epiId,
+      nome: item.nome,
+      ca: item.ca,
+      validadeCa: item.validadeCa,
+      qtd: item.quantidade,
+    }));
     setItens(sugeridos);
   }
 
@@ -236,9 +245,11 @@ export default function NovaEntrega() {
         <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
           <h2 className="text-base font-semibold text-epi-ink">Cadastre um local de estoque antes de continuar</h2>
           <p className="mt-2">A entrega desconta o EPI do saldo de um local de estoque.</p>
-          <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
-            Cadastrar local de estoque →
-          </Link>
+          <SePuder acao="gerenciar_estoque">
+            <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
+              Cadastrar local de estoque →
+            </Link>
+          </SePuder>
         </div>
       </AppShell>
     );

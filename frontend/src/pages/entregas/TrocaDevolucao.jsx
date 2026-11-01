@@ -5,6 +5,7 @@ import SuccessModal from "../../components/SuccessModal.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
 import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
+import SePuder from "../../components/SePuder.jsx";
 
 // Tela 03.08 — Entregas — Troca e devolução. O Figma não desenha um seletor de
 // funcionário nesta tela — como ela só é alcançável pelo botão "Troca /
@@ -124,9 +125,11 @@ export default function TrocaDevolucao() {
         <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
           <h2 className="text-base font-semibold text-epi-ink">Cadastre um local de estoque antes de continuar</h2>
           <p className="mt-2">O item devolvido volta para um local de estoque, e a reposição da troca sai dele.</p>
-          <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
-            Cadastrar local de estoque →
-          </Link>
+          <SePuder acao="gerenciar_estoque">
+            <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
+              Cadastrar local de estoque →
+            </Link>
+          </SePuder>
         </div>
       </AppShell>
     );

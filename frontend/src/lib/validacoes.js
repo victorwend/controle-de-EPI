@@ -151,3 +151,32 @@ export function cpfValido(valor) {
   const d2 = digito(cpf.slice(0, 9) + d1, 11);
   return cpf.endsWith(`${d1}${d2}`);
 }
+
+// ---------------------------------------------------------------------
+// Senha temporária (EPI-335: cadastro de usuário pelo administrador)
+// ---------------------------------------------------------------------
+
+// Sem letras/números que se confundem (l, I, O, 0, 1), para ditar a senha
+// sem erro.
+const GRUPOS_SENHA = ["abcdefghijkmnpqrstuvwxyz", "ABCDEFGHJKLMNPQRSTUVWXYZ", "23456789", "!@#$%&*?"];
+
+// Gera uma senha forte: tem pelo menos um caractere de cada grupo.
+// sorteio(n) devolve um número de 0 a n-1 (dá para trocar no teste).
+export function gerarSenhaTemporaria(tamanho = 10, sorteio = sortear) {
+  const todos = GRUPOS_SENHA.join("");
+  const letras = GRUPOS_SENHA.map((grupo) => grupo[sorteio(grupo.length)]);
+  while (letras.length < tamanho) letras.push(todos[sorteio(todos.length)]);
+  // Embaralha para os grupos não ficarem sempre na mesma posição.
+  for (let i = letras.length - 1; i > 0; i -= 1) {
+    const j = sorteio(i + 1);
+    [letras[i], letras[j]] = [letras[j], letras[i]];
+  }
+  return letras.join("");
+}
+
+// Sorteio seguro do navegador/Node (crypto), não Math.random.
+function sortear(n) {
+  const numero = new Uint32Array(1);
+  globalThis.crypto.getRandomValues(numero);
+  return numero[0] % n;
+}

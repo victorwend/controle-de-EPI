@@ -40,6 +40,11 @@ export default function RequireAuth() {
     );
   }
 
+  // EPI-335: entrou com senha temporária? Primeiro cria a própria senha.
+  if (usuario?.trocar_senha) {
+    return <Navigate to="/definir-senha" replace />;
+  }
+
   if (!temObra && location.pathname !== "/obras/nova") {
     return <Navigate to="/obras/nova" replace />;
   }

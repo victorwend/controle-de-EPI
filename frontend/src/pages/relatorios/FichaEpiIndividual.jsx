@@ -41,7 +41,7 @@ export default function FichaEpiIndividual() {
           supabase
             .from("entrega_itens")
             .select(
-              "id, quantidade, epis(nome, ca, validade_ca), entregas!inner(funcionario_id, created_at, comprovante, aceite_metodo, usuarios(nome_completo))"
+              "id, quantidade, epis(nome, ca, validade_ca), entregas!inner(funcionario_id, created_at, comprovante, aceite_metodo, usuarios(nome_completo), obras(nome))"
             )
             .eq("entregas.funcionario_id", funcionarioData.id),
           supabase.from("empresas").select("razao_social").limit(1),
@@ -108,7 +108,7 @@ export default function FichaEpiIndividual() {
         <div className="mt-6 grid grid-cols-2 gap-6 sm:grid-cols-5">
           <Stat label="Função" valor={funcionario.funcao || "—"} />
           <Stat label="Setor" valor={funcionario.setor || "—"} />
-          <Stat label="Obra" valor={funcionario.obras?.nome ?? "—"} />
+          <Stat label="Obra atual" valor={funcionario.obras?.nome ?? "—"} />
           <Stat label="Status" valor={funcionario.status === "ativo" ? "Ativo" : "Inativo"} />
           <Stat label="Última entrega" valor={ultimaEntrega ? formatarData(ultimaEntrega) : "—"} />
         </div>
@@ -122,6 +122,7 @@ export default function FichaEpiIndividual() {
               <thead className="border-y border-epi-border uppercase text-epi-muted">
                 <tr>
                   <th className="px-3 py-2">Data</th>
+                  <th className="px-3 py-2">Obra</th>
                   <th className="px-3 py-2">EPI</th>
                   <th className="px-3 py-2">CA</th>
                   <th className="px-3 py-2">Validade do CA</th>
@@ -135,6 +136,8 @@ export default function FichaEpiIndividual() {
                 {historico.map((item) => (
                   <tr key={item.id} className="border-b border-epi-border last:border-0">
                     <td className="px-3 py-2 text-epi-ink">{formatarData(item.entregas.created_at)}</td>
+                    {/* EPI-339: obra em que o EPI foi entregue (o funcionário pode ter sido transferido) */}
+                    <td className="px-3 py-2 text-epi-muted">{item.entregas.obras?.nome ?? "Sede"}</td>
                     <td className="px-3 py-2 text-epi-ink">{item.epis?.nome ?? "—"}</td>
                     <td className="px-3 py-2 text-epi-muted">{item.epis?.ca || "—"}</td>
                     <td className="px-3 py-2 text-epi-muted">{formatarDataCa(item.epis?.validade_ca)}</td>

@@ -1,6 +1,8 @@
-import { NavLink } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext.jsx";
-import { rotuloPerfil } from "../lib/permissoes.js";
+import { abaDaRota, rotuloPerfil } from "../lib/permissoes.js";
 
 const NAV_ITEMS = [
   { label: "Visão geral", to: "/visao-geral" },
@@ -13,13 +15,29 @@ const NAV_ITEMS = [
   { label: "Relatórios", to: "/relatorios" },
   // EPI-329: só aparece para o Administrador (ver somenteAdministrador).
   { label: "Usuários e permissões", to: "/usuarios", somenteAdministrador: true },
-  { label: "Configurações", to: "/configuracoes" },
+  // EPI-333: Configurações também é só do Administrador.
+  { label: "Configurações", to: "/configuracoes", somenteAdministrador: true },
 ];
 
 export default function AppShell({ title, subtitle, activeSection, children }) {
-  const { usuario } = useAuth();
+  const { usuario, pode } = useAuth();
+  const navigate = useNavigate();
+  const [saindo, setSaindo] = useState(false);
+
+  // EPI-334: encerra a sessão no Supabase e volta para o login.
+  async function sair() {
+    setSaindo(true);
+    await supabase.auth.signOut();
+    navigate("/", { replace: true });
+  }
   const ehAdministrador = usuario?.perfil === "administrador";
-  const itensVisiveis = NAV_ITEMS.filter((item) => !item.somenteAdministrador || ehAdministrador);
+  // EPI-333: cada aba só aparece se estiver liberada para o perfil
+  // (caixinhas em Usuários e permissões). Visão geral é de todos.
+  const itensVisiveis = NAV_ITEMS.filter((item) => {
+    if (item.somenteAdministrador) return ehAdministrador;
+    const aba = abaDaRota(item.to);
+    return !aba || pode(aba);
+  });
 
   return (
     <div className="flex min-h-screen w-full bg-epi-paper">
@@ -58,9 +76,19 @@ export default function AppShell({ title, subtitle, activeSection, children }) {
             {subtitle && <p className="mt-1 text-sm text-epi-muted">{subtitle}</p>}
           </div>
           {usuario && (
-            <p className="text-sm text-epi-muted">
-              {usuario.nome_completo} • {rotuloPerfil(usuario.perfil)}
-            </p>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-epi-muted">
+                {usuario.nome_completo} • {rotuloPerfil(usuario.perfil)}
+              </p>
+              <button
+                type="button"
+                onClick={sair}
+                disabled={saindo}
+                className="rounded-lg border border-epi-border px-3 py-1.5 text-sm font-medium text-epi-ink hover:bg-epi-paper disabled:opacity-60"
+              >
+                {saindo ? "Saindo..." : "Sair"}
+              </button>
+            </div>
           )}
         </header>
 
