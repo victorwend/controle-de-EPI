@@ -118,3 +118,23 @@ test("EPI-345: funcionários das entregas visíveis, sem repetir", async () => {
     { id: "b", nome: "Bruno" },
   ]);
 });
+
+test("EPI-347: caixinha por linha; consulta junta os funcionários das linhas marcadas", async () => {
+  const { funcionariosDasLinhasMarcadas } = await import("./loteEntrega.js");
+  const linhas = [
+    { id: "i1", entregas: { funcionario_id: "danilo" } },
+    { id: "i2", entregas: { funcionario_id: "adailton" } },
+    { id: "i3", entregas: { funcionario_id: "danilo" } },
+    { id: "i4", entregas: { funcionario_id: "danilo" } },
+  ];
+  // Marcar uma linha do Danilo marca SÓ ela (as outras linhas dele continuam desmarcadas)
+  let marcadas = alternarId(new Set(), "i1");
+  assert.deepEqual([...marcadas], ["i1"]);
+  assert.equal(linhas.filter((l) => marcadas.has(l.id)).length, 1);
+  assert.deepEqual(funcionariosDasLinhasMarcadas(linhas, marcadas), ["danilo"]);
+  // Duas linhas do Danilo + uma do Adailton = 2 funcionários
+  marcadas = new Set(["i1", "i3", "i2"]);
+  assert.deepEqual(funcionariosDasLinhasMarcadas(linhas, marcadas), ["danilo", "adailton"]);
+  // "Marcar todos" usa as linhas visíveis
+  assert.equal(alternarTodos(new Set(), linhas).size, 4);
+});

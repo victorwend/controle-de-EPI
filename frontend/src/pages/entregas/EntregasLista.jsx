@@ -5,7 +5,13 @@ import { supabase } from "../../lib/supabaseClient";
 import SePuder from "../../components/SePuder.jsx";
 import { filtrarFuncionarios } from "../../lib/funcionarios.js";
 import { rotuloMotivoEntrega } from "../../lib/entregas.js";
-import { alternarId, alternarTodos, filtrarEntregas, funcionariosDasEntregas, todosMarcados } from "../../lib/loteEntrega.js";
+import {
+  alternarId,
+  alternarTodos,
+  filtrarEntregas,
+  funcionariosDasLinhasMarcadas,
+  todosMarcados,
+} from "../../lib/loteEntrega.js";
 import { agruparItensPorFuncionario, emPedacos } from "../../lib/fichaEpi.js";
 import { formatarDataHora } from "../../lib/termoRecebimento.js";
 import {
@@ -31,6 +37,10 @@ import {
 // mostra o HISTÓRICO COMPLETO de movimentações dos marcados: entregas,
 // trocas, devoluções e baixas (mesma montagem da ficha, EPI-342).
 // A consulta pela busca e o clique no nome também abrem esse histórico.
+//
+// EPI-347: a caixinha marca só a PRÓPRIA LINHA (antes marcava o funcionário
+// e acendia todas as linhas dele, parecendo que marcava as dos outros).
+// "Consultar entregas" usa os funcionários das linhas marcadas.
 
 export default function EntregasLista() {
   const [busca, setBusca] = useState("");
@@ -40,7 +50,7 @@ export default function EntregasLista() {
   const [obras, setObras] = useState([]);
   const [loading, setLoading] = useState(true);
   const [buscaFuncionario, setBuscaFuncionario] = useState("");
-  // Funcionários marcados com a caixinha (EPI-345).
+  // Linhas (itens entregues) marcadas com a caixinha (EPI-347: por linha).
   const [selecionados, setSelecionados] = useState(() => new Set());
   // Histórico aberto: lista de funcionários consultados (null = lista de entregas).
   const [consultados, setConsultados] = useState(null);
@@ -81,7 +91,7 @@ export default function EntregasLista() {
     () => filtrarEntregas(linhas, { busca, obraId: obraFiltro }),
     [busca, obraFiltro, linhas]
   );
-  const funcionariosVisiveis = useMemo(() => funcionariosDasEntregas(linhasFiltradas), [linhasFiltradas]);
+  const funcionariosMarcados = useMemo(() => funcionariosDasLinhasMarcadas(linhas, selecionados), [linhas, selecionados]);
 
   // Busca entregas E trocas/devoluções/baixas dos funcionários escolhidos.
   async function consultar(lista) {
@@ -221,10 +231,13 @@ export default function EntregasLista() {
             </select>
           </div>
 
-          {/* EPI-345: barra que aparece com funcionários marcados */}
+          {/* EPI-345/347: barra que aparece com linhas marcadas */}
           {selecionados.size > 0 && (
             <div className="mb-4 flex max-w-[1060px] flex-wrap items-center justify-between gap-3 rounded-xl border border-epi-brand bg-[#EBF5F0] px-4 py-3">
-              <p className="text-sm font-semibold text-epi-ink">{selecionados.size} funcionário(s) selecionado(s)</p>
+              <p className="text-sm font-semibold text-epi-ink">
+                {selecionados.size} entrega(s) selecionada(s)
+                <span className="font-normal text-epi-muted"> • {funcionariosMarcados.length} funcionário(s)</span>
+              </p>
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -235,7 +248,7 @@ export default function EntregasLista() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => consultarPorIds([...selecionados])}
+                  onClick={() => consultarPorIds(funcionariosMarcados)}
                   className="rounded-lg bg-epi-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
                 >
                   Consultar entregas
@@ -251,11 +264,11 @@ export default function EntregasLista() {
                   <th className="w-10 px-4 py-3">
                     <input
                       type="checkbox"
-                      checked={todosMarcados(selecionados, funcionariosVisiveis)}
-                      onChange={() => setSelecionados((atual) => alternarTodos(atual, funcionariosVisiveis))}
-                      disabled={funcionariosVisiveis.length === 0}
-                      aria-label="Selecionar todos os funcionários da lista"
-                      title="Selecionar todos os funcionários que estão na lista"
+                      checked={todosMarcados(selecionados, linhasFiltradas)}
+                      onChange={() => setSelecionados((atual) => alternarTodos(atual, linhasFiltradas))}
+                      disabled={linhasFiltradas.length === 0}
+                      aria-label="Selecionar todas as entregas da lista"
+                      title="Selecionar todas as entregas que estão na lista"
                       className="h-4 w-4 accent-epi-brand"
                     />
                   </th>
@@ -280,7 +293,7 @@ export default function EntregasLista() {
                 {!loading &&
                   linhasFiltradas.map((linha) => {
                     const funcionarioId = linha.entregas?.funcionario_id;
-                    const marcado = selecionados.has(funcionarioId);
+                    const marcado = selecionados.has(linha.id);
                     return (
                       <tr
                         key={linha.id}
@@ -290,7 +303,7 @@ export default function EntregasLista() {
                           <input
                             type="checkbox"
                             checked={marcado}
-                            onChange={() => setSelecionados((atual) => alternarId(atual, funcionarioId))}
+                            onChange={() => setSelecionados((atual) => alternarId(atual, linha.id))}
                             aria-label={`Selecionar ${linha.entregas?.funcionarios?.nome ?? "funcionário"}`}
                             className="h-4 w-4 accent-epi-brand"
                           />
@@ -339,7 +352,7 @@ export default function EntregasLista() {
           <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
             Mostrando {linhasFiltradas.length} de {linhas.length} itens entregues. Marque as caixinhas e clique em{" "}
             <b>Consultar entregas</b> para ver todo o histórico (entregas, trocas, devoluções e baixas) dos
-            funcionários marcados. Clicar no nome faz o mesmo para uma pessoa.
+            funcionários das linhas marcadas. Clicar no nome faz o mesmo para uma pessoa.
           </p>
           <p className="mt-1 max-w-[1060px] text-sm text-epi-muted">
             Validação automática de estoque: a entrega é bloqueada quando não houver quantidade suficiente.

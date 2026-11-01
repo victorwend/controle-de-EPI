@@ -132,3 +132,10 @@ export function funcionariosDasEntregas(linhas) {
   }
   return [...vistos.values()];
 }
+
+// EPI-347: na aba Entregas, cada caixinha marca só a PRÓPRIA LINHA (antes
+// marcava o funcionário e acendia todas as linhas dele). Para "Consultar
+// entregas", estes são os funcionários das linhas marcadas, sem repetir.
+export function funcionariosDasLinhasMarcadas(linhas, idsMarcados) {
+  return funcionariosDasEntregas((linhas ?? []).filter((linha) => idsMarcados.has(linha.id))).map((f) => f.id);
+}
