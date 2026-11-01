@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
+import { podeFazer } from "../lib/permissoes.js";
 
 const AuthContext = createContext(null);
 
@@ -11,12 +12,16 @@ async function contarObras() {
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [usuario, setUsuario] = useState(null);
+  // EPI-331: ações que o perfil do usuário logado pode fazer (caixinhas
+  // marcadas pelo Administrador em Usuários e permissões).
+  const [minhasAcoes, setMinhasAcoes] = useState([]);
   const [temObra, setTemObra] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const carregarPerfil = useCallback(async (sessionAtual) => {
     if (!sessionAtual) {
       setUsuario(null);
+      setMinhasAcoes([]);
       setTemObra(false);
       return;
     }
@@ -28,6 +33,13 @@ export function AuthProvider({ children }) {
       .maybeSingle();
 
     setUsuario(data ?? null);
+
+    if (data && data.perfil !== "administrador") {
+      const { data: linhas } = await supabase.from("permissoes_perfil").select("acao").eq("perfil", data.perfil);
+      setMinhasAcoes((linhas ?? []).map((linha) => linha.acao));
+    } else {
+      setMinhasAcoes([]);
+    }
     setTemObra(await contarObras());
   }, []);
 
@@ -59,8 +71,12 @@ export function AuthProvider({ children }) {
     setTemObra(await contarObras());
   }, []);
 
+  // pode("registrar_entregas") -> true/false. Serve só para esconder
+  // botões: quem garante a regra é o banco.
+  const pode = useCallback((acao) => podeFazer(usuario?.perfil, acao, minhasAcoes), [usuario, minhasAcoes]);
+
   return (
-    <AuthContext.Provider value={{ session, usuario, temObra, loading, refreshTemObra }}>
+    <AuthContext.Provider value={{ session, usuario, temObra, loading, refreshTemObra, pode }}>
       {children}
     </AuthContext.Provider>
   );
