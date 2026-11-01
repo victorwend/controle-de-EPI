@@ -77,8 +77,8 @@ export const MATRIZ_PERMISSOES = [
   {
     grupo: "acoes",
     chave: "gerenciar_epis",
-    acao: "Cadastrar e editar EPIs e CAs",
-    detalhe: "Catálogo de EPIs da empresa",
+    acao: "Cadastrar e editar EPIs, CAs e a matriz EPI x Função",
+    detalhe: "Catálogo de EPIs, funções e matriz",
     padrao: ["tecnico_seguranca"],
     exige: ["aba_epis"],
   },
