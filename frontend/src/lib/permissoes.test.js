@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  abaDaRota,
   ACOES_CONFIGURAVEIS,
   marcarAcao,
   montarEstado,
@@ -22,16 +23,28 @@ test("o perfil Operador não pode mais ser escolhido", () => {
 
 test("o perfil sugerido no convite existe e só consulta por padrão", () => {
   assert.ok(PERFIS.some((perfil) => perfil.valor === PERFIL_PADRAO));
-  assert.deepEqual(permissoesPadrao()[PERFIL_PADRAO], []);
+  // Gestor vê as abas, mas não tem nenhuma ação (só consulta).
+  assert.equal(permissoesPadrao()[PERFIL_PADRAO].some((acao) => !acao.startsWith("aba_")), false);
 });
 
-test("padrão das caixinhas é igual ao do banco (correção 19)", () => {
+const ABAS = [
+  "aba_entregas",
+  "aba_funcionarios",
+  "aba_estoque",
+  "aba_epis",
+  "aba_obras",
+  "aba_cadastros",
+  "aba_relatorios",
+];
+
+test("padrão das caixinhas é igual ao do banco (correções 19 e 20)", () => {
   assert.deepEqual(permissoesPadrao(), {
-    almoxarife: ["gerenciar_estoque", "registrar_entregas"],
-    tecnico_seguranca: ["gerenciar_epis"],
-    gestor: [],
+    almoxarife: [...ABAS, "gerenciar_estoque", "registrar_entregas"],
+    tecnico_seguranca: [...ABAS, "gerenciar_epis"],
+    gestor: [...ABAS],
   });
   assert.deepEqual(ACOES_CONFIGURAVEIS, [
+    ...ABAS,
     "gerenciar_epis",
     "gerenciar_estoque",
     "registrar_entregas",
@@ -39,6 +52,17 @@ test("padrão das caixinhas é igual ao do banco (correção 19)", () => {
     "gerenciar_obras",
     "ver_todas_obras",
   ]);
+});
+
+test("abaDaRota encontra a aba de cada endereço", () => {
+  assert.equal(abaDaRota("/entregas"), "aba_entregas");
+  assert.equal(abaDaRota("/entregas/nova"), "aba_entregas");
+  assert.equal(abaDaRota("/funcionarios/123/ficha-epi"), "aba_funcionarios");
+  assert.equal(abaDaRota("/estoque/locais/novo"), "aba_estoque");
+  assert.equal(abaDaRota("/visao-geral"), null);
+  assert.equal(abaDaRota("/usuarios"), null);
+  // "/obras-x" não é a aba Obras (precisa ser "/obras" ou "/obras/...")
+  assert.equal(abaDaRota("/obras-x"), null);
 });
 
 test("montarEstado lê as linhas do banco", () => {
@@ -50,15 +74,17 @@ test("montarEstado lê as linhas do banco", () => {
   assert.deepEqual(estado, { almoxarife: [], tecnico_seguranca: [], gestor: ["gerenciar_epis"] });
 });
 
-test("marcar obras marca ver todas; desmarcar ver todas desmarca obras", () => {
-  let estado = permissoesPadrao();
-  estado = marcarAcao(estado, "gestor", "gerenciar_obras", true);
-  assert.deepEqual(estado.gestor, ["gerenciar_obras", "ver_todas_obras"]);
+test("dependências: ação marca a sua aba; tirar a aba tira a ação", () => {
+  const vazio = { almoxarife: [], tecnico_seguranca: [], gestor: [] };
+  let estado = marcarAcao(vazio, "gestor", "gerenciar_obras", true);
+  assert.deepEqual(estado.gestor, ["aba_obras", "gerenciar_obras", "ver_todas_obras"]);
   estado = marcarAcao(estado, "gestor", "ver_todas_obras", false);
-  assert.deepEqual(estado.gestor, []);
-  estado = marcarAcao(estado, "almoxarife", "registrar_entregas", false);
-  assert.deepEqual(estado.almoxarife, ["gerenciar_estoque"]);
-  assert.deepEqual(perfisAlterados(permissoesPadrao(), estado), ["almoxarife"]);
+  assert.deepEqual(estado.gestor, ["aba_obras"]);
+  estado = marcarAcao(estado, "gestor", "registrar_entregas", true);
+  assert.deepEqual(estado.gestor, ["aba_entregas", "aba_obras", "registrar_entregas"]);
+  estado = marcarAcao(estado, "gestor", "aba_entregas", false);
+  assert.deepEqual(estado.gestor, ["aba_obras"]);
+  assert.deepEqual(perfisAlterados(vazio, estado), ["gestor"]);
 });
 
 test("podeFazer: admin pode tudo; os outros conforme as caixinhas", () => {

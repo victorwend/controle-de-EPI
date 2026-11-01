@@ -44,7 +44,7 @@ begin
 
   -- TESTE 1: a empresa tem o padrão de antes ------------------------
   begin
-    execute format('select count(*) from permissoes_perfil where empresa_id = %L', v_empresa) into v_qtd;
+    execute format('select count(*) from permissoes_perfil where empresa_id = %L and acao not like ''aba\_%%''' /* abas: correção 20 */, v_empresa) into v_qtd;
     v_resultado := case when v_qtd = 3 then 'OK - 3 permissões padrão' else 'FALHOU - ' || v_qtd || ' permissões' end;
   exception when others then
     v_resultado := 'FALHOU - ' || sqlerrm;
@@ -55,7 +55,7 @@ begin
   insert into empresas (razao_social, cnpj)
     values ('Empresa teste B', 'TESTE-' || left(gen_random_uuid()::text, 8)) returning id into v_empresa_b;
   begin
-    execute format('select count(*) from permissoes_perfil where empresa_id = %L', v_empresa_b) into v_qtd;
+    execute format('select count(*) from permissoes_perfil where empresa_id = %L and acao not like ''aba\_%%''' /* abas: correção 20 */, v_empresa_b) into v_qtd;
     v_resultado := case when v_qtd = 3 then 'OK - nasceu com o padrão' else 'FALHOU - ' || v_qtd || ' permissões' end;
   exception when others then
     v_resultado := 'FALHOU - ' || sqlerrm;

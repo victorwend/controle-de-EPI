@@ -38,63 +38,106 @@ export function perfilValido(perfil) {
 export const PERFIS_CONFIGURAVEIS = ["almoxarife", "tecnico_seguranca", "gestor"];
 
 // Cada linha da tabela "O que cada perfil pode fazer".
-//  - chave: nome da ação no banco (tabela permissoes_perfil). Linha com
-//    chave tem caixinhas que o Administrador marca/desmarca.
+//  - grupo: "abas" (o que aparece no menu) ou "acoes" (o que pode fazer).
+//  - chave: nome no banco (tabela permissoes_perfil). Linha com chave tem
+//    caixinhas que o Administrador marca/desmarca.
 //  - fixa: linha SEM caixinha (regra fixa por segurança); "perfis" diz
 //    quem pode.
-//  - padrao: quem já vinha marcado (igual ao banco: correção 19).
-// Quem GARANTE as regras é o banco; esta lista só desenha a tela.
+//  - padrao: quem já vem marcado (igual ao banco: correções 19 e 20).
+//  - exige: o que é marcado junto (ex.: entregar EPI precisa da aba
+//    Entregas). Desmarcar o exigido desmarca quem depende dele.
+// Quem GARANTE as regras de gravação é o banco; esta lista desenha a tela.
+const TODOS = ["almoxarife", "tecnico_seguranca", "gestor"];
+
 export const MATRIZ_PERMISSOES = [
+  // ---- Abas do menu (EPI-333) ----
   {
-    acao: "Consultar funcionários, estoque, entregas e relatórios",
-    detalhe: "Fixo: todos consultam as obras liberadas para eles",
+    grupo: "abas",
+    acao: "Visão geral",
+    detalhe: "Fixo: página inicial de todos",
     fixa: true,
-    perfis: ["administrador", "almoxarife", "tecnico_seguranca", "gestor"],
+    perfis: ["administrador", ...TODOS],
   },
+  { grupo: "abas", chave: "aba_entregas", acao: "Entregas de EPI", detalhe: "Aba do menu", padrao: TODOS, rota: "/entregas" },
+  { grupo: "abas", chave: "aba_funcionarios", acao: "Funcionários", detalhe: "Aba do menu", padrao: TODOS, rota: "/funcionarios" },
+  { grupo: "abas", chave: "aba_estoque", acao: "Estoque", detalhe: "Aba do menu", padrao: TODOS, rota: "/estoque" },
+  { grupo: "abas", chave: "aba_epis", acao: "EPIs e CAs", detalhe: "Aba do menu", padrao: TODOS, rota: "/epis-cas" },
+  { grupo: "abas", chave: "aba_obras", acao: "Obras", detalhe: "Aba do menu", padrao: TODOS, rota: "/obras" },
+  { grupo: "abas", chave: "aba_cadastros", acao: "Cadastros", detalhe: "Aba do menu", padrao: TODOS, rota: "/cadastros" },
+  { grupo: "abas", chave: "aba_relatorios", acao: "Relatórios", detalhe: "Aba do menu", padrao: TODOS, rota: "/relatorios" },
   {
+    grupo: "abas",
+    acao: "Usuários e permissões e Configurações",
+    detalhe: "Fixo: só o Administrador",
+    fixa: true,
+    perfis: ["administrador"],
+  },
+
+  // ---- O que pode fazer ----
+  {
+    grupo: "acoes",
     chave: "gerenciar_epis",
     acao: "Cadastrar e editar EPIs e CAs",
     detalhe: "Catálogo de EPIs da empresa",
     padrao: ["tecnico_seguranca"],
+    exige: ["aba_epis"],
   },
   {
+    grupo: "acoes",
     chave: "gerenciar_estoque",
     acao: "Locais de estoque, entrada e transferência",
     detalhe: "Só nas obras liberadas",
     padrao: ["almoxarife"],
+    exige: ["aba_estoque"],
   },
   {
+    grupo: "acoes",
     chave: "registrar_entregas",
     acao: "Entregar EPI, troca e devolução",
     detalhe: "Só nas obras liberadas",
     padrao: ["almoxarife"],
+    exige: ["aba_entregas"],
   },
   {
+    grupo: "acoes",
     chave: "gerenciar_funcionarios",
     acao: "Cadastrar, editar, importar e inativar funcionários",
     detalhe: "Só nas obras liberadas",
     padrao: [],
+    exige: ["aba_funcionarios"],
   },
   {
+    grupo: "acoes",
     chave: "gerenciar_obras",
     acao: "Cadastrar e editar obras",
     detalhe: 'Exige "Ver todas as obras"',
     padrao: [],
-    exige: "ver_todas_obras",
+    exige: ["aba_obras", "ver_todas_obras"],
   },
   {
+    grupo: "acoes",
     chave: "ver_todas_obras",
     acao: "Ver todas as obras, sem precisar liberar uma a uma",
     detalhe: "Ignora as obras liberadas do usuário",
     padrao: [],
   },
   {
+    grupo: "acoes",
     acao: "Convidar usuários e mudar permissões",
     detalhe: "Fixo: só o Administrador",
     fixa: true,
     perfis: ["administrador"],
   },
 ];
+
+// Aba do menu que corresponde a um endereço (para o menu e para a trava
+// das rotas). Endereço sem aba (ex.: Visão geral) devolve null.
+export function abaDaRota(caminho) {
+  const linha = MATRIZ_PERMISSOES.find(
+    (item) => item.rota && (caminho === item.rota || caminho.startsWith(item.rota + "/"))
+  );
+  return linha ? linha.chave : null;
+}
 
 export const ACOES_CONFIGURAVEIS = MATRIZ_PERMISSOES.filter((linha) => linha.chave).map((linha) => linha.chave);
 
@@ -117,20 +160,22 @@ export function montarEstado(linhas) {
   return estado;
 }
 
-// Marca/desmarca uma caixinha respeitando as dependências:
-// marcar "obras" marca "ver todas"; desmarcar "ver todas" desmarca "obras".
+// Marca/desmarca uma caixinha respeitando as dependências ("exige"):
+// marcar uma ação marca o que ela exige (ex.: a aba dela);
+// desmarcar algo desmarca as ações que dependem dele.
 export function marcarAcao(estado, perfil, chave, marcado) {
-  let acoes = new Set(estado[perfil] ?? []);
-  if (marcado) acoes.add(chave);
-  else acoes.delete(chave);
-
-  for (const linha of MATRIZ_PERMISSOES) {
-    if (!linha.exige) continue;
-    if (marcado && chave === linha.chave) acoes.add(linha.exige);
-    if (!marcado && chave === linha.exige) acoes.delete(linha.chave);
+  const acoes = new Set(estado[perfil] ?? []);
+  if (marcado) {
+    acoes.add(chave);
+    const linha = MATRIZ_PERMISSOES.find((item) => item.chave === chave);
+    for (const exigido of linha?.exige ?? []) acoes.add(exigido);
+  } else {
+    acoes.delete(chave);
+    for (const linha of MATRIZ_PERMISSOES) {
+      if ((linha.exige ?? []).includes(chave)) acoes.delete(linha.chave);
+    }
   }
-  acoes = ACOES_CONFIGURAVEIS.filter((acao) => acoes.has(acao));
-  return { ...estado, [perfil]: acoes };
+  return { ...estado, [perfil]: ACOES_CONFIGURAVEIS.filter((acao) => acoes.has(acao)) };
 }
 
 // O usuário logado pode fazer esta ação? (para esconder botões na tela)

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.jsx";
-import { rotuloPerfil } from "../lib/permissoes.js";
+import { abaDaRota, rotuloPerfil } from "../lib/permissoes.js";
 
 const NAV_ITEMS = [
   { label: "Visão geral", to: "/visao-geral" },
@@ -13,13 +13,20 @@ const NAV_ITEMS = [
   { label: "Relatórios", to: "/relatorios" },
   // EPI-329: só aparece para o Administrador (ver somenteAdministrador).
   { label: "Usuários e permissões", to: "/usuarios", somenteAdministrador: true },
-  { label: "Configurações", to: "/configuracoes" },
+  // EPI-333: Configurações também é só do Administrador.
+  { label: "Configurações", to: "/configuracoes", somenteAdministrador: true },
 ];
 
 export default function AppShell({ title, subtitle, activeSection, children }) {
-  const { usuario } = useAuth();
+  const { usuario, pode } = useAuth();
   const ehAdministrador = usuario?.perfil === "administrador";
-  const itensVisiveis = NAV_ITEMS.filter((item) => !item.somenteAdministrador || ehAdministrador);
+  // EPI-333: cada aba só aparece se estiver liberada para o perfil
+  // (caixinhas em Usuários e permissões). Visão geral é de todos.
+  const itensVisiveis = NAV_ITEMS.filter((item) => {
+    if (item.somenteAdministrador) return ehAdministrador;
+    const aba = abaDaRota(item.to);
+    return !aba || pode(aba);
+  });
 
   return (
     <div className="flex min-h-screen w-full bg-epi-paper">
