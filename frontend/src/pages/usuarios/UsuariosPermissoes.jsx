@@ -162,7 +162,7 @@ export default function UsuariosPermissoes() {
           </p>
         </div>
         <Link
-          to="/cadastros/usuario"
+          to="/usuarios/convidar"
           className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
         >
           + Convidar usuário
