@@ -2,10 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
+import { contarInativos, filtrarFuncionarios } from "../../lib/funcionarios.js";
+import { formatarData } from "../../lib/termoRecebimento.js";
+
+// EPI-330: funcionário INATIVO (desligado) não aparece na lista nem na
+// busca; só com o filtro "Mostrar inativos". Para inativar, abra a ficha.
 
 export default function FuncionariosLista() {
   const [busca, setBusca] = useState("");
   const [obraFiltro, setObraFiltro] = useState("");
+  const [mostrarInativos, setMostrarInativos] = useState(false);
   const [funcionarios, setFuncionarios] = useState([]);
   const [obras, setObras] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,7 +23,7 @@ export default function FuncionariosLista() {
       const [{ data: funcionariosData }, { data: obrasData }] = await Promise.all([
         supabase
           .from("funcionarios")
-          .select("id, matricula, nome, funcao, status, obra_id, obras(nome)")
+          .select("id, matricula, nome, funcao, status, data_desligamento, obra_id, obras(nome)")
           .order("nome"),
         supabase.from("obras").select("id, nome").order("nome"),
       ]);
@@ -34,18 +40,11 @@ export default function FuncionariosLista() {
     };
   }, []);
 
-  const funcionariosFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-    return funcionarios.filter((funcionario) => {
-      const bateBusca =
-        !termo ||
-        funcionario.nome.toLowerCase().includes(termo) ||
-        funcionario.matricula.toLowerCase().includes(termo) ||
-        (funcionario.funcao ?? "").toLowerCase().includes(termo);
-      const bateObra = !obraFiltro || funcionario.obra_id === obraFiltro;
-      return bateBusca && bateObra;
-    });
-  }, [busca, obraFiltro, funcionarios]);
+  const funcionariosFiltrados = useMemo(
+    () => filtrarFuncionarios(funcionarios, { busca, obraId: obraFiltro, mostrarInativos }),
+    [busca, obraFiltro, mostrarInativos, funcionarios]
+  );
+  const quantidadeInativos = contarInativos(funcionarios);
 
   return (
     <AppShell title="Controle de Equipamentos de Proteção Individual" activeSection="Funcionários">
@@ -90,6 +89,15 @@ export default function FuncionariosLista() {
             </option>
           ))}
         </select>
+        <label className="flex h-11 items-center gap-2 whitespace-nowrap rounded-lg border border-epi-border px-3 text-sm text-epi-ink">
+          <input
+            type="checkbox"
+            checked={mostrarInativos}
+            onChange={(event) => setMostrarInativos(event.target.checked)}
+            className="h-4 w-4 accent-epi-brand"
+          />
+          Mostrar inativos ({quantidadeInativos})
+        </label>
       </div>
 
       <div className="max-w-[1060px] overflow-x-auto rounded-xl border border-epi-border bg-white">
@@ -115,7 +123,10 @@ export default function FuncionariosLista() {
             )}
             {!loading &&
               funcionariosFiltrados.map((funcionario) => (
-                <tr key={funcionario.id} className="border-b border-epi-border last:border-0">
+                <tr
+                  key={funcionario.id}
+                  className={`border-b border-epi-border last:border-0 ${funcionario.status === "ativo" ? "" : "bg-epi-paper"}`}
+                >
                   <td className="px-4 py-3">
                     <Link to={`/funcionarios/${funcionario.matricula}`} className="font-medium text-epi-ink hover:text-epi-brand">
                       {funcionario.nome}
@@ -126,15 +137,20 @@ export default function FuncionariosLista() {
                   <td className="px-4 py-3 text-epi-muted">{funcionario.obras?.nome ?? "—"}</td>
                   <td className="px-4 py-3 text-epi-muted">0</td>
                   <td className="px-4 py-3 text-epi-muted">0</td>
-                  <td className="px-4 py-3 text-epi-muted">
+                  <td className={`px-4 py-3 font-medium ${funcionario.status === "ativo" ? "text-green-700" : "text-epi-muted"}`}>
                     {funcionario.status === "ativo" ? "Ativo" : "Inativo"}
+                    {funcionario.status !== "ativo" && funcionario.data_desligamento && (
+                      <span className="block text-xs font-normal">desde {formatarData(funcionario.data_desligamento)}</span>
+                    )}
                   </td>
                 </tr>
               ))}
             {!loading && funcionariosFiltrados.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-6 text-center text-epi-muted">
-                  Nenhum funcionário encontrado.
+                  {!mostrarInativos && quantidadeInativos > 0
+                    ? "Nenhum funcionário ativo encontrado. Marque \"Mostrar inativos\" para procurar entre os desligados."
+                    : "Nenhum funcionário encontrado."}
                 </td>
               </tr>
             )}
@@ -143,7 +159,8 @@ export default function FuncionariosLista() {
       </div>
 
       <p className="mt-4 max-w-[1060px] text-sm text-epi-muted">
-        Clique em um funcionário para abrir ficha, histórico e pendências. "EPIs ativos" e "Pendências" ainda
+        Clique em um funcionário para abrir ficha, histórico e pendências. Para registrar um desligamento, abra a
+        ficha e use <b>Inativar</b>. "EPIs ativos" e "Pendências" ainda
         mostram 0 — dependem do módulo de Entregas, que ainda não foi migrado do mock.
       </p>
     </AppShell>

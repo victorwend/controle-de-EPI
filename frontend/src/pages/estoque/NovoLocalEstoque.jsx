@@ -55,7 +55,7 @@ export default function NovoLocalEstoque() {
     let ativo = true;
     Promise.all([
       supabase.from("obras").select("id, nome").order("nome"),
-      supabase.from("funcionarios").select("id, nome").order("nome"),
+      supabase.from("funcionarios").select("id, nome, status").order("nome"),
     ]).then(([{ data: obrasData }, { data: funcionariosData }]) => {
       if (!ativo) return;
       setObras(obrasData ?? []);
@@ -164,7 +164,11 @@ export default function NovoLocalEstoque() {
               className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
             >
               <option value="">Selecione</option>
-              {funcionarios.map((funcionario) => (
+              {/* EPI-330: funcionário inativo não pode virar responsável; só
+                  continua aparecendo se já for o responsável deste local. */}
+              {funcionarios
+                .filter((funcionario) => funcionario.status === "ativo" || funcionario.id === responsavelId)
+                .map((funcionario) => (
                 <option key={funcionario.id} value={funcionario.id}>
                   {funcionario.nome}
                 </option>
