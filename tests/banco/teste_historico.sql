@@ -58,8 +58,8 @@ begin
     values (v_empresa, v_epi_mov, v_local_mov, 10);
 
   -- Entrega do EPI "entregue" para o funcionário "com entrega"
-  insert into entregas (empresa_id, funcionario_id, local_id, comprovante, responsavel_usuario_id)
-    values (v_empresa, v_func_hist, v_local, 'TESTE-HIST', v_usuario)
+  insert into entregas (empresa_id, funcionario_id, local_id, comprovante, responsavel_usuario_id, aceite_metodo)
+    values (v_empresa, v_func_hist, v_local, 'TESTE-HIST', v_usuario, 'confirmacao_responsavel')
     returning id into v_entrega;
   insert into entrega_itens (entrega_id, epi_id, quantidade) values (v_entrega, v_epi_entrega, 1);
 

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
+import { rotuloMetodoAceite } from "../../lib/termoRecebimento";
 
 const FILTROS = ["Todos", "Entregas", "Trocas", "Devoluções"];
 
@@ -31,7 +32,7 @@ export default function HistoricoCompleto() {
       if (funcionarioData) {
         const { data: itensData } = await supabase
           .from("entrega_itens")
-          .select("id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, usuarios(nome_completo))")
+          .select("id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, aceite_metodo, usuarios(nome_completo))")
           .eq("entregas.funcionario_id", funcionarioData.id)
           .order("id", { ascending: false });
         if (ativo) setHistorico(itensData ?? []);
@@ -131,7 +132,7 @@ export default function HistoricoCompleto() {
                   {item.epis?.nome ?? "—"} • CA {item.epis?.ca ?? "—"}
                 </td>
                 <td className="px-4 py-3 text-epi-muted">{item.quantidade}</td>
-                <td className="px-4 py-3 text-epi-muted">Biometria</td>
+                <td className="px-4 py-3 text-epi-muted">{rotuloMetodoAceite(item.entregas.aceite_metodo)}</td>
                 <td className="px-4 py-3 text-epi-muted">{item.entregas.usuarios?.nome_completo ?? "—"}</td>
               </tr>
             ))}
