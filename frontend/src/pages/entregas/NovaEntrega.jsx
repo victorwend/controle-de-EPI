@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
 import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
+import { formatarDataHora, imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
 
 // EPI-273: enquanto a biometria não for real (RN-062), a entrega é concluída
 // pelo BOTÃO DE CONFIRMAÇÃO do responsável (decisão do Victor, 31/10/2026).
@@ -135,6 +135,18 @@ export default function NovaEntrega() {
     }));
     setItens(sugeridos);
   }
+
+  // EPI-343: "Nova entrega" da aba Entregas (ou da ficha) já chega com o
+  // funcionário escolhido: /entregas/nova?funcionario=<matrícula>.
+  const [searchParams] = useSearchParams();
+  const matriculaInicial = searchParams.get("funcionario");
+  const [preSelecaoFeita, setPreSelecaoFeita] = useState(false);
+  useEffect(() => {
+    if (carregando || preSelecaoFeita || !matriculaInicial) return;
+    setPreSelecaoFeita(true);
+    const encontrado = funcionarios.find((f) => f.matricula === matriculaInicial);
+    if (encontrado) selecionarFuncionario(encontrado);
+  }, [carregando, preSelecaoFeita, matriculaInicial, funcionarios]);
 
   function adicionarItem(epi) {
     setItens((atual) => [...atual, { epiId: epi.id, nome: epi.nome, ca: epi.ca, validadeCa: epi.validade_ca, qtd: 1 }]);
@@ -762,7 +774,7 @@ export default function NovaEntrega() {
           <div className="mx-auto mt-6 max-w-[420px] rounded-lg bg-[#EBF5F0] p-5 text-left">
             <p className="font-semibold text-epi-ink">{funcionario.nome}</p>
             <p className="mt-1 text-sm text-epi-muted">
-              {itens.length} tipos de EPI • {funcionario.obras?.nome ?? "—"} • {new Date().toLocaleDateString("pt-BR")}
+              {itens.length} tipos de EPI • {funcionario.obras?.nome ?? "—"} • {formatarDataHora(new Date())}
             </p>
             <p className="mt-1 text-sm text-epi-muted">Comprovante nº {comprovante}</p>
             <p className="mt-1 text-sm text-epi-muted">Aceite: confirmado pelo responsável</p>

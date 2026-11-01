@@ -2,6 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { agruparItensPorFuncionario, emPedacos, montarFichasEpi } from "./fichaEpi.js";
+import { agruparTrocasPorFuncionario } from "./historicoEpi.js";
 
 const ITENS = [
   {
@@ -59,4 +60,38 @@ test("um documento com uma ficha (página) por funcionário", () => {
 test("divide a lista em pedaços", () => {
   assert.deepEqual(emPedacos([1, 2, 3, 4, 5], 2), [[1, 2], [3, 4], [5]]);
   assert.deepEqual(emPedacos([], 2), []);
+});
+
+test("EPI-342: a ficha mostra trocas, devoluções e baixas", () => {
+  const html = montarFichasEpi({
+    empresa: "Pavidez",
+    funcionarios: [FUNCIONARIOS[0]],
+    itensPorFuncionario: agruparItensPorFuncionario(ITENS),
+    trocasPorFuncionario: agruparTrocasPorFuncionario([
+      { id: 1, funcionario_id: "f1", created_at: "2026-10-25T10:00:00Z", quantidade: 1, acao: "troca", destino: "descarte", motivo: "Rasgou", epis: { nome: "Luva" } },
+      { id: 2, funcionario_id: "f1", created_at: "2026-10-26T10:00:00Z", quantidade: 1, acao: "devolucao", destino: "perda", motivo: "Desligamento: Fim de contrato", epis: { nome: "Capacete" } },
+    ]),
+    geradoEm: "01/11/2026",
+  });
+  assert.match(html, /<th>Movimentação<\/th>/);
+  assert.match(html, /<b>Troca<\/b>/);
+  assert.match(html, /<b>Baixa<\/b>/);
+  assert.match(html, /Perda \/ extravio/);
+  assert.match(html, /Desligamento: Fim de contrato/);
+  assert.match(html, /<b>Entrega<\/b>/);
+});
+
+test("EPI-346: a ficha mostra a hora da movimentação", async () => {
+  const { montarFichasEpi } = await import("./fichaEpi.js");
+  const quando = new Date(2026, 9, 2, 14, 30); // 02/10/2026 14:30 (fuso local)
+  const html = montarFichasEpi({
+    empresa: "Pavidez",
+    funcionarios: [{ id: "f1", nome: "Ana", matricula: "1" }],
+    itensPorFuncionario: {
+      f1: [{ id: 1, quantidade: 1, epis: { nome: "Luva", ca: "9" }, entregas: { funcionario_id: "f1", created_at: quando.toISOString(), motivo: "admissao" } }],
+    },
+    geradoEm: "01/11/2026",
+  });
+  assert.match(html, /02\/10\/2026 14:30/);
+  assert.match(html, /<th>Data e hora<\/th>/);
 });

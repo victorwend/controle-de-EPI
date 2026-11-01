@@ -3,21 +3,18 @@ import { Link, useParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { formatarData as formatarDia } from "../../lib/termoRecebimento.js";
+import { formatarData as formatarDia, formatarDataHora } from "../../lib/termoRecebimento.js";
 import { hojeIso, MOTIVOS_DESLIGAMENTO, textoMotivo, validarDesligamento } from "../../lib/funcionarios.js";
 import SePuder from "../../components/SePuder.jsx";
 import TransferirFuncionario from "./TransferirFuncionario.jsx";
-import { baixaInicial, baixaParaSalvar, DESTINOS_BAIXA, rotuloMotivoEntrega, validarBaixa } from "../../lib/entregas.js";
+import { montarHistorico, SELECT_ENTREGAS, SELECT_TROCAS } from "../../lib/historicoEpi.js";
+import { baixaInicial, baixaParaSalvar, DESTINOS_BAIXA, validarBaixa } from "../../lib/entregas.js";
 
 // EPI-330: o Administrador inativa o funcionário desligado (data e motivo)
 // ou o reativa. Funcionário não é apagado: o histórico de EPIs fica.
 //
 // EPI-339: o Administrador TRANSFERE o funcionário de obra. O histórico
 // mostra a obra de cada entrega e a lista de transferências.
-
-function formatarData(dataIso) {
-  return new Date(dataIso).toLocaleDateString("pt-BR");
-}
 
 export default function FichaFuncionario() {
   const { matricula } = useParams();
@@ -46,13 +43,11 @@ export default function FichaFuncionario() {
       setFuncionario(funcionarioData ?? null);
 
       if (funcionarioData) {
-        const { data: itensData } = await supabase
-          .from("entrega_itens")
-          .select(
-            "id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, motivo, responsavel_usuario_id, usuarios(nome_completo), obras(nome))"
-          )
-          .eq("entregas.funcionario_id", funcionarioData.id)
-          .order("id", { ascending: false });
+        // EPI-342: entregas E trocas/devoluções/baixas, numa linha do tempo só.
+        const [{ data: itensData }, { data: trocasData }] = await Promise.all([
+          supabase.from("entrega_itens").select(SELECT_ENTREGAS).eq("entregas.funcionario_id", funcionarioData.id),
+          supabase.from("trocas_devolucoes_itens").select(SELECT_TROCAS).eq("funcionario_id", funcionarioData.id),
+        ]);
         const { data: posseData } = await supabase
           .from("posse_epi_funcionario")
           .select("epi_id, quantidade, epis(nome, ca)")
@@ -68,7 +63,7 @@ export default function FichaFuncionario() {
           .order("data_transferencia", { ascending: false });
         if (ativo) {
           setTransferencias(transferenciasData ?? []);
-          setHistorico(itensData ?? []);
+          setHistorico(montarHistorico(itensData, trocasData));
           setPosseItens(posseData ?? []);
         }
       }
@@ -102,7 +97,9 @@ export default function FichaFuncionario() {
     );
   }
 
-  const ultimaEntrega = historico[0]?.entregas?.created_at;
+  const ultimaEntrega = historico.find((linha) => linha.categoria === "entrega")?.data;
+  const ultimaMovimentacao = historico[0]?.data;
+  const totalEmPosse = posseItens.reduce((total, linha) => total + (linha.quantidade ?? 0), 0);
   const estaAtivo = funcionario.status === "ativo";
 
   return (
@@ -136,7 +133,7 @@ export default function FichaFuncionario() {
           </Link>
           {estaAtivo && (
             <SePuder acao="registrar_entregas">
-              <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+              <Link to={`/entregas/nova?funcionario=${encodeURIComponent(funcionario.matricula)}`} className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
                 + Registrar entrega
               </Link>
             </SePuder>
@@ -176,8 +173,8 @@ export default function FichaFuncionario() {
 
       <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6">
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-5">
-          <Stat label="EPIs ativos" valor={historico.length} />
-          <Stat label="Última entrega" valor={ultimaEntrega ? formatarData(ultimaEntrega) : "—"} />
+          <Stat label="EPIs em posse" valor={totalEmPosse} />
+          <Stat label="Última entrega" valor={ultimaEntrega ? formatarDataHora(ultimaEntrega) : "—"} />
           <Stat label="Pendências" valor={0} />
           <Stat label="Obra" valor={funcionario.obras?.nome ?? "—"} />
           <Stat label="Status" valor={funcionario.status === "ativo" ? "Ativo" : "Inativo"} destaque />
@@ -186,33 +183,44 @@ export default function FichaFuncionario() {
 
       <div className="mt-6 grid max-w-[1060px] grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
         <div className="rounded-xl border border-epi-border bg-white p-6">
-          <h3 className="text-sm font-semibold text-epi-ink">Histórico de entregas</h3>
+          <h3 className="text-sm font-semibold text-epi-ink">Histórico de EPIs</h3>
+          <p className="mt-1 text-xs text-epi-muted">Entregas, trocas, devoluções e baixas (descarte e perda).</p>
           {historico.length === 0 ? (
-            <p className="mt-3 text-sm text-epi-muted">Nenhuma entrega registrada para este funcionário.</p>
+            <p className="mt-3 text-sm text-epi-muted">Nenhuma movimentação de EPI para este funcionário.</p>
           ) : (
             <div className="mt-3 overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                    <th className="py-2 pr-4 font-medium">Data</th>
-                    <th className="py-2 pr-4 font-medium">Obra</th>
+                    <th className="py-2 pr-4 font-medium">Data e hora</th>
+                    <th className="py-2 pr-4 font-medium">Movimentação</th>
                     <th className="py-2 pr-4 font-medium">EPI</th>
-                    <th className="py-2 pr-4 font-medium">CA</th>
                     <th className="py-2 pr-4 font-medium">Qtd.</th>
-                    <th className="py-2 pr-4 font-medium">Motivo</th>
+                    <th className="py-2 pr-4 font-medium">Obra</th>
                     <th className="py-2 font-medium">Responsável</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {historico.map((item) => (
-                    <tr key={item.id} className="border-b border-epi-border text-epi-ink last:border-0">
-                      <td className="py-2.5 pr-4 text-epi-muted">{formatarData(item.entregas.created_at)}</td>
-                      <td className="py-2.5 pr-4 text-epi-muted">{item.entregas.obras?.nome ?? "Sede"}</td>
-                      <td className="py-2.5 pr-4 font-medium">{item.epis?.nome ?? "—"}</td>
-                      <td className="py-2.5 pr-4 text-epi-muted">{item.epis?.ca ?? "—"}</td>
-                      <td className="py-2.5 pr-4 text-epi-muted">{item.quantidade}</td>
-                      <td className="py-2.5 pr-4 text-epi-muted">{rotuloMotivoEntrega(item.entregas.motivo)}</td>
-                      <td className="py-2.5 text-epi-muted">{item.entregas.usuarios?.nome_completo ?? "—"}</td>
+                  {historico.map((linha) => (
+                    <tr key={linha.id} className="border-b border-epi-border text-epi-ink last:border-0">
+                      <td className="py-2.5 pr-4 text-epi-muted">{formatarDataHora(linha.data)}</td>
+                      <td className="py-2.5 pr-4">
+                        <span className="font-medium">{linha.tipo}</span>
+                        <span className="block text-xs text-epi-muted">
+                          {linha.detalhe}
+                          {linha.observacao && ` · ${linha.observacao}`}
+                        </span>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        {linha.epi}
+                        {linha.ca && <span className="block text-xs text-epi-muted">CA {linha.ca}</span>}
+                      </td>
+                      <td className="py-2.5 pr-4 text-epi-muted">
+                        {linha.sinal}
+                        {linha.quantidade}
+                      </td>
+                      <td className="py-2.5 pr-4 text-epi-muted">{linha.obra}</td>
+                      <td className="py-2.5 text-epi-muted">{linha.responsavel}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -223,10 +231,10 @@ export default function FichaFuncionario() {
 
         <div className="rounded-xl border border-epi-border bg-white p-6">
           <h3 className="text-sm font-semibold text-epi-ink">Ficha de EPI</h3>
-          <p className="mt-3 text-xs uppercase text-epi-muted">Última atualização</p>
-          <p className="text-sm text-epi-ink">{ultimaEntrega ? formatarData(ultimaEntrega) : "—"}</p>
-          <p className="mt-3 text-xs uppercase text-epi-muted">Assinatura/aceite</p>
-          <p className="text-sm font-medium text-epi-brand">{historico.length > 0 ? "Registrado" : "—"}</p>
+          <p className="mt-3 text-xs uppercase text-epi-muted">Última entrega</p>
+          <p className="text-sm text-epi-ink">{ultimaEntrega ? formatarDataHora(ultimaEntrega) : "—"}</p>
+          <p className="mt-3 text-xs uppercase text-epi-muted">Última movimentação</p>
+          <p className="text-sm text-epi-ink">{ultimaMovimentacao ? formatarDataHora(ultimaMovimentacao) : "—"}</p>
           <p className="mt-3 text-xs uppercase text-epi-muted">Alertas</p>
           <p className="text-sm text-epi-muted">Nenhuma pendência encontrada.</p>
           <Link
@@ -244,7 +252,7 @@ export default function FichaFuncionario() {
           <table className="mt-3 w-full text-left text-sm">
             <thead>
               <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                <th className="py-2 pr-4 font-medium">Data</th>
+                <th className="py-2 pr-4 font-medium">Data e hora</th>
                 <th className="py-2 pr-4 font-medium">De</th>
                 <th className="py-2 pr-4 font-medium">Para</th>
                 <th className="py-2 pr-4 font-medium">Motivo</th>

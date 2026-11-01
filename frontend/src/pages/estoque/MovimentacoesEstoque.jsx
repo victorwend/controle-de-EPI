@@ -4,10 +4,7 @@ import AppShell from "../../layouts/AppShell.jsx";
 import EstoqueVazio from "../../components/EstoqueVazio.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import SePuder from "../../components/SePuder.jsx";
-
-function formatarData(dataIso) {
-  return new Date(dataIso).toLocaleDateString("pt-BR");
-}
+import { formatarDataHora } from "../../lib/termoRecebimento.js";
 
 function origemDestino(mov) {
   if (mov.tipo === "entrada") {
@@ -138,7 +135,7 @@ export default function MovimentacoesEstoque() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
-                  <th className="px-4 py-3 font-medium">Data</th>
+                  <th className="px-4 py-3 font-medium">Data e hora</th>
                   <th className="px-4 py-3 font-medium">Tipo</th>
                   <th className="px-4 py-3 font-medium">EPI / CA</th>
                   <th className="px-4 py-3 font-medium">Qtd.</th>
@@ -150,7 +147,7 @@ export default function MovimentacoesEstoque() {
               <tbody>
                 {movimentacoesFiltradas.map((mov) => (
                   <tr key={mov.id} className="border-b border-epi-border last:border-0">
-                    <td className="px-4 py-3 text-epi-muted">{formatarData(mov.created_at)}</td>
+                    <td className="px-4 py-3 text-epi-muted">{formatarDataHora(mov.created_at)}</td>
                     <td className="px-4 py-3 text-epi-muted">
                       {labelTipo(mov.tipo)}
                     </td>
