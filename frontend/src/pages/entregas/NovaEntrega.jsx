@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
@@ -135,6 +135,18 @@ export default function NovaEntrega() {
     }));
     setItens(sugeridos);
   }
+
+  // EPI-343: "Nova entrega" da aba Entregas (ou da ficha) já chega com o
+  // funcionário escolhido: /entregas/nova?funcionario=<matrícula>.
+  const [searchParams] = useSearchParams();
+  const matriculaInicial = searchParams.get("funcionario");
+  const [preSelecaoFeita, setPreSelecaoFeita] = useState(false);
+  useEffect(() => {
+    if (carregando || preSelecaoFeita || !matriculaInicial) return;
+    setPreSelecaoFeita(true);
+    const encontrado = funcionarios.find((f) => f.matricula === matriculaInicial);
+    if (encontrado) selecionarFuncionario(encontrado);
+  }, [carregando, preSelecaoFeita, matriculaInicial, funcionarios]);
 
   function adicionarItem(epi) {
     setItens((atual) => [...atual, { epiId: epi.id, nome: epi.nome, ca: epi.ca, validadeCa: epi.validade_ca, qtd: 1 }]);
