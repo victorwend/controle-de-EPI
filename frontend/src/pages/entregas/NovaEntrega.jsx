@@ -16,6 +16,7 @@ import { imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib
 const BIOMETRIA_ATIVA = false;
 const METODO_ACEITE = "confirmacao_responsavel";
 import { itensSugeridos } from "../../lib/matriz.js";
+import SePuder from "../../components/SePuder.jsx";
 
 // Wizard de entrega individual (03.02 → 03.03 → 03.04), com a confirmação biométrica
 // (03.05/03.09–03.12) como um sub-passo interno e o bloqueio por saldo insuficiente
@@ -244,9 +245,11 @@ export default function NovaEntrega() {
         <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
           <h2 className="text-base font-semibold text-epi-ink">Cadastre um local de estoque antes de continuar</h2>
           <p className="mt-2">A entrega desconta o EPI do saldo de um local de estoque.</p>
-          <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
-            Cadastrar local de estoque →
-          </Link>
+          <SePuder acao="gerenciar_estoque">
+            <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
+              Cadastrar local de estoque →
+            </Link>
+          </SePuder>
         </div>
       </AppShell>
     );

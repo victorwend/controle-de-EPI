@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import EstoqueVazio from "../../components/EstoqueVazio.jsx";
 import { supabase } from "../../lib/supabaseClient";
+import SePuder from "../../components/SePuder.jsx";
 
 function formatarData(dataIso) {
   return new Date(dataIso).toLocaleDateString("pt-BR");
@@ -89,12 +90,14 @@ export default function MovimentacoesEstoque() {
             Consulte todas as entradas e transferências registradas.
           </p>
         </div>
-        <Link
-          to="/estoque/entrada"
-          className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-        >
-          + Nova movimentação
-        </Link>
+        <SePuder acao="gerenciar_estoque">
+          <Link
+            to="/estoque/entrada"
+            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+          >
+            + Nova movimentação
+          </Link>
+        </SePuder>
       </div>
 
       <div className="mb-6 grid max-w-[1060px] grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">

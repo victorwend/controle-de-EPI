@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
+import SePuder from "../../components/SePuder.jsx";
 
 // RN079 deixa o prazo de antecedência do alerta de CA como "configurável",
 // ainda sem valor definido (ver docs/02-requisitos/regras-de-negocio.md).
@@ -77,12 +78,14 @@ export default function EpisLista() {
           >
             Matriz EPI x Função
           </Link>
-          <Link
-            to="/epis-cas/novo"
-            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-          >
-            + Novo EPI
-          </Link>
+          <SePuder acao="gerenciar_epis">
+            <Link
+              to="/epis-cas/novo"
+              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            >
+              + Novo EPI
+            </Link>
+          </SePuder>
         </div>
       </div>
 

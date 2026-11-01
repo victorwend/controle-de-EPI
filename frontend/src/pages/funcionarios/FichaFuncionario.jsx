@@ -5,6 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { formatarData as formatarDia } from "../../lib/termoRecebimento.js";
 import { hojeIso, MOTIVOS_DESLIGAMENTO, textoMotivo, validarDesligamento } from "../../lib/funcionarios.js";
+import SePuder from "../../components/SePuder.jsx";
 
 // EPI-330: o Administrador inativa o funcionário desligado (data e motivo)
 // ou o reativa. Funcionário não é apagado: o histórico de EPIs fica.
@@ -108,9 +109,11 @@ export default function FichaFuncionario() {
             Histórico completo
           </Link>
           {estaAtivo && (
-            <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
-              + Registrar entrega
-            </Link>
+            <SePuder acao="registrar_entregas">
+              <Link to="/entregas/nova" className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90">
+                + Registrar entrega
+              </Link>
+            </SePuder>
           )}
         </div>
       </div>
@@ -291,9 +294,11 @@ function SituacaoFuncionario({ funcionario, emPosse, onAlterado }) {
             <p className="mb-4 rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-800">
               Este funcionário ainda tem <b>{emPosse} EPI(s) em posse</b>. O ideal é registrar a devolução antes de
               inativar:{" "}
-              <Link to="/entregas/troca-devolucao" className="font-semibold underline">
-                Troca / devolução
-              </Link>
+              <SePuder acao="registrar_entregas">
+                <Link to="/entregas/troca-devolucao" className="font-semibold underline">
+                  Troca / devolução
+                </Link>
+              </SePuder>
               .
             </p>
           )}

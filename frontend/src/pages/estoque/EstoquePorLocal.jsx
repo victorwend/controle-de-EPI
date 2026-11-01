@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import EstoqueVazio from "../../components/EstoqueVazio.jsx";
 import { supabase } from "../../lib/supabaseClient";
+import SePuder from "../../components/SePuder.jsx";
 
 // Não existe "05.01 — Estoque — Visão geral" no protótipo (lacuna já registrada em
 // docs/04-ux-ui/auditoria-figma.md). Esta tela preenche essa lacuna usando o conteúdo
@@ -63,18 +64,22 @@ export default function EstoquePorLocal() {
           >
             Ver movimentações
           </Link>
-          <Link
-            to="/estoque/transferencia"
-            className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
-          >
-            Transferir
-          </Link>
-          <Link
-            to="/estoque/entrada"
-            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-          >
-            + Registrar entrada
-          </Link>
+          <SePuder acao="gerenciar_estoque">
+            <Link
+              to="/estoque/transferencia"
+              className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
+            >
+              Transferir
+            </Link>
+          </SePuder>
+          <SePuder acao="gerenciar_estoque">
+            <Link
+              to="/estoque/entrada"
+              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            >
+              + Registrar entrada
+            </Link>
+          </SePuder>
         </div>
       </div>
 

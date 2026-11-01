@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
+import SePuder from "../../components/SePuder.jsx";
 
 function formatarData(dataIso) {
   return new Date(dataIso).toLocaleDateString("pt-BR");
@@ -56,24 +57,30 @@ export default function EntregasLista() {
           <p className="mt-1 text-sm text-epi-muted">Consulte e registre todas as entregas realizadas aos colaboradores.</p>
         </div>
         <div className="flex gap-3">
-          <Link
-            to="/entregas/troca-devolucao"
-            className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
-          >
-            Troca / devolução
-          </Link>
-          <Link
-            to="/entregas/lote"
-            className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
-          >
-            Entrega em lote
-          </Link>
-          <Link
-            to="/entregas/nova"
-            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-          >
-            + Nova entrega
-          </Link>
+          <SePuder acao="registrar_entregas">
+            <Link
+              to="/entregas/troca-devolucao"
+              className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
+            >
+              Troca / devolução
+            </Link>
+          </SePuder>
+          <SePuder acao="registrar_entregas">
+            <Link
+              to="/entregas/lote"
+              className="rounded-lg border border-epi-border bg-white px-4 py-2.5 text-sm font-medium text-epi-ink"
+            >
+              Entrega em lote
+            </Link>
+          </SePuder>
+          <SePuder acao="registrar_entregas">
+            <Link
+              to="/entregas/nova"
+              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            >
+              + Nova entrega
+            </Link>
+          </SePuder>
         </div>
       </div>
 

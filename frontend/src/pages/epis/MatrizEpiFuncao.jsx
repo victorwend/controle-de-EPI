@@ -11,6 +11,7 @@ import {
   validarItensMatriz,
   validarNomeFuncao,
 } from "../../lib/matriz.js";
+import SePuder from "../../components/SePuder.jsx";
 
 // Matriz EPI x Função com dados reais (EPI-280).
 //
@@ -353,9 +354,11 @@ export default function MatrizEpiFuncao() {
             {epis.length === 0 && (
               <p className="mt-2 text-sm text-epi-muted">
                 Nenhum EPI cadastrado.{" "}
-                <Link to="/epis-cas/novo" className="font-semibold text-epi-brand">
-                  Cadastre um EPI
-                </Link>{" "}
+                <SePuder acao="gerenciar_epis">
+                  <Link to="/epis-cas/novo" className="font-semibold text-epi-brand">
+                    Cadastre um EPI
+                  </Link>
+                </SePuder>{" "}
                 primeiro.
               </p>
             )}

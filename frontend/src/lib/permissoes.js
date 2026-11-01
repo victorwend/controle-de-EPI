@@ -130,6 +130,21 @@ export const MATRIZ_PERMISSOES = [
   },
 ];
 
+// EPI-337: telas de AÇÃO (criar, entregar, dar entrada...) e a permissão
+// que cada uma exige. Quem não tem a permissão não vê o botão e, se digitar
+// o endereço, vê "sem acesso". O banco barra a gravação de qualquer jeito.
+const ROTAS_DE_ACAO = [
+  { rota: /^\/entregas\/(nova|lote|troca-devolucao)\/?$/, acao: "registrar_entregas" },
+  { rota: /^\/epis-cas\/novo\/?$/, acao: "gerenciar_epis" },
+  { rota: /^\/estoque\/(entrada|transferencia|locais\/novo|locais\/[^/]+\/editar)\/?$/, acao: "gerenciar_estoque" },
+  { rota: /^\/obras\/nova\/?$/, acao: "gerenciar_obras" },
+  { rota: /^\/funcionarios\/(novo|importar)\/?$/, acao: "gerenciar_funcionarios" },
+];
+
+export function acaoDaRota(caminho) {
+  return ROTAS_DE_ACAO.find((item) => item.rota.test(caminho))?.acao ?? null;
+}
+
 // Aba do menu que corresponde a um endereço (para o menu e para a trava
 // das rotas). Endereço sem aba (ex.: Visão geral) devolve null.
 export function abaDaRota(caminho) {

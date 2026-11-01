@@ -11,6 +11,7 @@ import { imprimirHtml, montarListaAssinaturasLote } from "../../lib/termoRecebim
 // botão de confirmação do responsável. A lista impressa é opcional.
 const METODO_ACEITE = "confirmacao_responsavel";
 import { itensSugeridos as sugerirDaMatriz } from "../../lib/matriz.js";
+import SePuder from "../../components/SePuder.jsx";
 
 // Tela 03.07 — Entregas — Em lote. Diferente das outras telas de Entregas, o
 // Figma preenche esta com dado só estrutural ("Funcionário 01 • matrícula" x4,
@@ -182,9 +183,11 @@ export default function LoteEntrega() {
         <div className="max-w-[1060px] rounded-xl border border-epi-border bg-white p-6 text-sm text-epi-muted">
           <h2 className="text-base font-semibold text-epi-ink">Cadastre um local de estoque antes de continuar</h2>
           <p className="mt-2">A entrega em lote desconta os EPIs do saldo de um local de estoque.</p>
-          <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
-            Cadastrar local de estoque →
-          </Link>
+          <SePuder acao="gerenciar_estoque">
+            <Link to="/estoque/locais/novo" className="mt-3 inline-block font-semibold text-epi-brand">
+              Cadastrar local de estoque →
+            </Link>
+          </SePuder>
         </div>
       </AppShell>
     );

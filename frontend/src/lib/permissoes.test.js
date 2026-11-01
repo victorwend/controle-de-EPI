@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   abaDaRota,
+  acaoDaRota,
   ACOES_CONFIGURAVEIS,
   marcarAcao,
   montarEstado,
@@ -115,4 +116,20 @@ test("validação do formulário de permissões", () => {
     validarPermissoes({ perfil: "administrador", ativo: true, ehVoceMesmo: true, perfilAtual: "administrador", ativoAtual: true }),
     ""
   );
+});
+
+test("acaoDaRota: telas de ação exigem a permissão certa", () => {
+  assert.equal(acaoDaRota("/entregas/nova"), "registrar_entregas");
+  assert.equal(acaoDaRota("/entregas/lote"), "registrar_entregas");
+  assert.equal(acaoDaRota("/entregas/troca-devolucao"), "registrar_entregas");
+  assert.equal(acaoDaRota("/epis-cas/novo"), "gerenciar_epis");
+  assert.equal(acaoDaRota("/estoque/entrada"), "gerenciar_estoque");
+  assert.equal(acaoDaRota("/estoque/locais/abc-123/editar"), "gerenciar_estoque");
+  assert.equal(acaoDaRota("/obras/nova"), "gerenciar_obras");
+  assert.equal(acaoDaRota("/funcionarios/importar"), "gerenciar_funcionarios");
+  // telas de consulta não exigem ação
+  assert.equal(acaoDaRota("/entregas"), null);
+  assert.equal(acaoDaRota("/estoque/locais"), null);
+  assert.equal(acaoDaRota("/funcionarios/12345"), null);
+  assert.equal(acaoDaRota("/epis-cas/matriz"), null);
 });

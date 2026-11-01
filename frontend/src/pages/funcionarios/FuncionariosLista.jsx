@@ -4,6 +4,7 @@ import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { contarInativos, filtrarFuncionarios } from "../../lib/funcionarios.js";
 import { formatarData } from "../../lib/termoRecebimento.js";
+import SePuder from "../../components/SePuder.jsx";
 
 // EPI-330: funcionário INATIVO (desligado) não aparece na lista nem na
 // busca; só com o filtro "Mostrar inativos". Para inativar, abra a ficha.
@@ -54,18 +55,22 @@ export default function FuncionariosLista() {
           <p className="mt-1 text-sm text-epi-muted">Cadastre colaboradores e acompanhe o histórico de EPIs.</p>
         </div>
         <div className="flex gap-3">
-          <Link
-            to="/funcionarios/importar"
-            className="rounded-lg border border-epi-brand px-4 py-2.5 text-sm font-semibold text-epi-brand hover:bg-epi-paper"
-          >
-            Importar planilha
-          </Link>
-          <Link
-            to="/funcionarios/novo"
-            className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
-          >
-            + Novo funcionário
-          </Link>
+          <SePuder acao="gerenciar_funcionarios">
+            <Link
+              to="/funcionarios/importar"
+              className="rounded-lg border border-epi-brand px-4 py-2.5 text-sm font-semibold text-epi-brand hover:bg-epi-paper"
+            >
+              Importar planilha
+            </Link>
+          </SePuder>
+          <SePuder acao="gerenciar_funcionarios">
+            <Link
+              to="/funcionarios/novo"
+              className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90"
+            >
+              + Novo funcionário
+            </Link>
+          </SePuder>
         </div>
       </div>
 
