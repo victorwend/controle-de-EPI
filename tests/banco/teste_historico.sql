@@ -124,6 +124,11 @@ begin
       v_resultado := 'OK - o banco bloqueou';
     when sqlstate 'ZZ001' then
       null;
+    -- Desde a correção 15, local ativo nem chega à chave estrangeira:
+    -- o banco pede para inativar antes. Também conta como bloqueio.
+    when others then
+      v_resultado := case when sqlerrm ilike '%inative%' then 'OK - o banco bloqueou'
+                          else 'ERRO NO TESTE - ' || sqlerrm end;
   end;
   v_relatorio := v_relatorio || E'\nTESTE 3 (apagar local com movimentação): ' || v_resultado;
 
