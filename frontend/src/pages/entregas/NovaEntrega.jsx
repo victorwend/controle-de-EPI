@@ -16,6 +16,7 @@ import { imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib
 const BIOMETRIA_ATIVA = false;
 const METODO_ACEITE = "confirmacao_responsavel";
 import { itensSugeridos } from "../../lib/matriz.js";
+import { MOTIVOS_ENTREGA, motivoSugerido, motivoValido, rotuloMotivoEntrega } from "../../lib/entregas.js";
 import SePuder from "../../components/SePuder.jsx";
 
 // Wizard de entrega individual (03.02 → 03.03 → 03.04), com a confirmação biométrica
@@ -43,6 +44,8 @@ export default function NovaEntrega() {
   const [itens, setItens] = useState([]);
   const [buscaEpi, setBuscaEpi] = useState("");
   const [observacao, setObservacao] = useState("");
+  // EPI-340: motivo da entrega (admissão, troca, desgaste natural, perda).
+  const [motivo, setMotivo] = useState("");
 
   const [bioStep, setBioStep] = useState("aguardando");
   const [bioTentativas, setBioTentativas] = useState(0);
@@ -109,6 +112,12 @@ export default function NovaEntrega() {
   async function selecionarFuncionario(f) {
     setFuncionario(f);
     setBusca(`${f.nome} • Matrícula ${f.matricula}`);
+    // EPI-340: quem nunca recebeu EPI vem sugerido como "Admissão".
+    const { count } = await supabase
+      .from("entregas")
+      .select("id", { count: "exact", head: true })
+      .eq("funcionario_id", f.id);
+    setMotivo(motivoSugerido((count ?? 0) > 0));
     if (!f.funcao_id) {
       setItens([]);
       return;
@@ -196,6 +205,7 @@ export default function NovaEntrega() {
       p_itens: itens.map((item) => ({ epi_id: item.epiId, quantidade: item.qtd })),
       p_observacao: observacao.trim() || null,
       p_aceite_metodo: METODO_ACEITE,
+      p_motivo: motivo,
     });
 
     setEnviando(false);
@@ -424,6 +434,23 @@ export default function NovaEntrega() {
               </table>
             </div>
 
+            {/* EPI-340: motivo da entrega (obrigatório) */}
+            <label className="mt-4 block text-[13px] font-medium text-epi-ink">
+              Motivo da entrega *
+              <select
+                value={motivo}
+                onChange={(event) => setMotivo(event.target.value)}
+                className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand md:w-72"
+              >
+                <option value="">Escolha o motivo...</option>
+                {MOTIVOS_ENTREGA.map((opcao) => (
+                  <option key={opcao.valor} value={opcao.valor}>
+                    {opcao.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label className="mt-4 block text-[13px] font-medium text-epi-ink">
               Observação
               <textarea
@@ -445,7 +472,8 @@ export default function NovaEntrega() {
               </button>
               <button
                 type="button"
-                disabled={itens.length === 0}
+                disabled={itens.length === 0 || !motivoValido(motivo)}
+                title={!motivoValido(motivo) ? "Escolha o motivo da entrega" : ""}
                 onClick={revisarEntrega}
                 className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >
@@ -517,6 +545,8 @@ export default function NovaEntrega() {
             </p>
             <p className="mt-3 text-xs font-medium uppercase text-epi-muted">Obra</p>
             <p className="mt-1 text-sm text-epi-ink">{funcionario.obras?.nome ?? "—"}</p>
+            <p className="mt-3 text-xs font-medium uppercase text-epi-muted">Motivo</p>
+            <p className="mt-1 text-sm text-epi-ink">{rotuloMotivoEntrega(motivo)}</p>
 
             <p className="mt-5 text-xs font-medium uppercase text-epi-muted">Itens da entrega</p>
             <div className="mt-2 divide-y divide-epi-border">

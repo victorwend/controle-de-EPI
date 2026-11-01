@@ -87,7 +87,7 @@ begin
   -- TESTE 6: NÃO entrega para funcionário da outra obra ---------------
   begin
     perform registrar_entrega(v_f2, v_l1,
-      jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel');
+      jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel', 'admissao');
     v_resultado := 'FALHOU - entregou para funcionário de outra obra';
     raise exception using errcode = 'ZZ001';
   exception
@@ -112,7 +112,7 @@ begin
   -- TESTE 9: entrega normal na própria obra continua funcionando ------
   begin
     perform registrar_entrega(v_f1, v_l1,
-      jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel');
+      jsonb_build_array(jsonb_build_object('epi_id', v_epi, 'quantidade', 1)), null, 'confirmacao_responsavel', 'admissao');
     v_resultado := 'OK - entregou normalmente';
     raise exception using errcode = 'ZZ001';
   exception

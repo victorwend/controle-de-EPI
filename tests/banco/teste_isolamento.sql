@@ -109,7 +109,7 @@ begin
   -- TESTE 4: entregar EPI para funcionário da empresa B -------------
   begin
     perform registrar_entrega(v_func_b, v_local_a,
-      jsonb_build_array(jsonb_build_object('epi_id', v_epi_a, 'quantidade', 1)), null, 'confirmacao_responsavel');
+      jsonb_build_array(jsonb_build_object('epi_id', v_epi_a, 'quantidade', 1)), null, 'confirmacao_responsavel', 'admissao');
     v_resultado := 'FALHOU - entregou para funcionário de outra empresa';
     raise exception using errcode = 'ZZ001';
   exception
@@ -122,7 +122,7 @@ begin
   -- TESTE 5: entregar EPI tirado do estoque da empresa B ------------
   begin
     perform registrar_entrega(v_func_a, v_local_b,
-      jsonb_build_array(jsonb_build_object('epi_id', v_epi_b, 'quantidade', 1)), null, 'confirmacao_responsavel');
+      jsonb_build_array(jsonb_build_object('epi_id', v_epi_b, 'quantidade', 1)), null, 'confirmacao_responsavel', 'admissao');
     v_resultado := 'FALHOU - entregou EPI do estoque de outra empresa';
     raise exception using errcode = 'ZZ001';
   exception

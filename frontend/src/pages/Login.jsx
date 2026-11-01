@@ -1,11 +1,20 @@
 import { useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, Link } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "../context/AuthContext.jsx";
+import { definirManterConectado, emailLembrado, lembrarEmail, manterConectado } from "../lib/lembrarLogin.js";
 
+// EPI-341: quem já está conectado vai direto para o sistema; "Manter
+// conectado" guarda a sessão no navegador e o e-mail já vem preenchido.
+// A senha nunca é guardada pelo sistema (o navegador pode oferecer
+// "Salvar senha" no gerenciador de senhas dele).
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const { session, loading: carregandoSessao } = useAuth();
+  const [email, setEmail] = useState(() => emailLembrado());
   const [password, setPassword] = useState("");
+  const [manter, setManter] = useState(() => manterConectado());
   const [erro, setErro] = useState("");
+  const [aviso, setAviso] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -14,7 +23,11 @@ export default function Login() {
   async function handleSubmit(event) {
     event.preventDefault();
     setErro("");
+    setAviso("");
     setLoading(true);
+
+    // A escolha vale ANTES do login, porque é no login que a sessão é gravada.
+    definirManterConectado(manter);
 
     const { error } = await supabase.auth.signInWithPassword({
       email: email.trim(),
@@ -28,7 +41,32 @@ export default function Login() {
       return;
     }
 
+    lembrarEmail(email.trim(), manter);
     navigate("/visao-geral");
+  }
+
+  // "Esqueci minha senha": o Supabase manda um e-mail com link para
+  // /definir-senha, onde a pessoa cria uma senha nova.
+  async function esqueciSenha() {
+    setErro("");
+    setAviso("");
+    if (!email.trim()) {
+      setErro("Digite seu e-mail acima e clique de novo em \"Esqueci minha senha\".");
+      return;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/definir-senha`,
+    });
+    if (error) {
+      setErro("Não foi possível enviar o e-mail agora. Tente de novo em alguns minutos.");
+      return;
+    }
+    setAviso("Se esse e-mail estiver cadastrado, você vai receber um link para criar uma senha nova.");
+  }
+
+  // Já está conectado (sessão guardada)? Não precisa digitar a senha.
+  if (!carregandoSessao && session) {
+    return <Navigate to="/visao-geral" replace />;
   }
 
   return (
@@ -76,6 +114,8 @@ export default function Login() {
               E-mail
               <input
                 type="email"
+                name="email"
+                id="email"
                 autoComplete="username"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -88,6 +128,8 @@ export default function Login() {
               Senha
               <input
                 type="password"
+                name="password"
+                id="password"
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -96,13 +138,25 @@ export default function Login() {
               />
             </label>
 
-            <button
-              type="button"
-              className="mt-3 block w-full text-right text-[13px] font-semibold text-epi-brand"
-            >
-              Esqueci minha senha
-            </button>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-[13px] text-epi-ink">
+                <input
+                  type="checkbox"
+                  checked={manter}
+                  onChange={(event) => setManter(event.target.checked)}
+                  className="h-4 w-4 accent-epi-brand"
+                />
+                Manter conectado neste computador
+              </label>
+              <button type="button" onClick={esqueciSenha} className="text-[13px] font-semibold text-epi-brand">
+                Esqueci minha senha
+              </button>
+            </div>
+            <p className="mt-1 text-xs text-epi-muted">Em computador compartilhado, deixe desmarcado.</p>
 
+            {aviso && (
+              <p className="mt-6 rounded-[10px] bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">{aviso}</p>
+            )}
             {erro && (
               <p className="mt-6 rounded-[10px] bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
                 {erro}

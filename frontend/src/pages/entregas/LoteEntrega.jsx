@@ -11,6 +11,7 @@ import { imprimirHtml, montarListaAssinaturasLote } from "../../lib/termoRecebim
 // botão de confirmação do responsável. A lista impressa é opcional.
 const METODO_ACEITE = "confirmacao_responsavel";
 import { itensSugeridos as sugerirDaMatriz } from "../../lib/matriz.js";
+import { MOTIVOS_ENTREGA, motivoValido } from "../../lib/entregas.js";
 import SePuder from "../../components/SePuder.jsx";
 
 // Tela 03.07 — Entregas — Em lote. Diferente das outras telas de Entregas, o
@@ -34,6 +35,8 @@ export default function LoteEntrega() {
 
   const [obraId, setObraId] = useState("");
   const [funcao, setFuncao] = useState("");
+  // EPI-340: um motivo para o lote todo (ex.: admissão de uma equipe nova).
+  const [motivo, setMotivo] = useState("admissao");
   const [selecionados, setSelecionados] = useState({});
   const [step, setStep] = useState("config");
   const [status, setStatus] = useState({});
@@ -125,6 +128,7 @@ export default function LoteEntrega() {
       p_itens: itensSugeridos.map((item) => ({ epi_id: item.epiId, quantidade: item.quantidade })),
       p_observacao: "Entrega em lote",
       p_aceite_metodo: METODO_ACEITE,
+      p_motivo: motivo,
     });
 
     if (error) {
@@ -208,7 +212,7 @@ export default function LoteEntrega() {
       {step === "config" && (
         <div className="max-w-[1060px] space-y-6">
           <div className="rounded-xl border border-epi-border bg-white p-6">
-            <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-x-8 gap-y-4 md:grid-cols-4">
               <label className="block text-[13px] font-medium text-epi-ink">
                 Obra
                 <select
@@ -235,6 +239,21 @@ export default function LoteEntrega() {
                   {funcoes.map((f) => (
                     <option key={f.id} value={f.id}>
                       {f.nome}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-[13px] font-medium text-epi-ink">
+                Motivo da entrega
+                <select
+                  value={motivo}
+                  onChange={(event) => setMotivo(event.target.value)}
+                  className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
+                >
+                  <option value="">Escolha...</option>
+                  {MOTIVOS_ENTREGA.map((opcao) => (
+                    <option key={opcao.valor} value={opcao.valor}>
+                      {opcao.label}
                     </option>
                   ))}
                 </select>
@@ -322,7 +341,7 @@ export default function LoteEntrega() {
             </button>
             <button
               type="button"
-              disabled={selecionadosCount === 0 || itensSugeridos.length === 0 || itensSemSaldo.length > 0}
+              disabled={selecionadosCount === 0 || itensSugeridos.length === 0 || itensSemSaldo.length > 0 || !motivoValido(motivo)}
               onClick={iniciarConfirmacao}
               className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
             >

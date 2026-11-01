@@ -7,6 +7,7 @@ import { formatarData as formatarDia } from "../../lib/termoRecebimento.js";
 import { hojeIso, MOTIVOS_DESLIGAMENTO, textoMotivo, validarDesligamento } from "../../lib/funcionarios.js";
 import SePuder from "../../components/SePuder.jsx";
 import TransferirFuncionario from "./TransferirFuncionario.jsx";
+import { baixaInicial, baixaParaSalvar, DESTINOS_BAIXA, rotuloMotivoEntrega, validarBaixa } from "../../lib/entregas.js";
 
 // EPI-330: o Administrador inativa o funcionário desligado (data e motivo)
 // ou o reativa. Funcionário não é apagado: o histórico de EPIs fica.
@@ -28,7 +29,7 @@ export default function FichaFuncionario() {
   const [transferencias, setTransferencias] = useState([]);
   const [funcionario, setFuncionario] = useState(undefined);
   const [historico, setHistorico] = useState([]);
-  const [emPosse, setEmPosse] = useState(0);
+  const [posseItens, setPosseItens] = useState([]);
   const [recarregar, setRecarregar] = useState(0);
 
   useEffect(() => {
@@ -48,14 +49,15 @@ export default function FichaFuncionario() {
         const { data: itensData } = await supabase
           .from("entrega_itens")
           .select(
-            "id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, responsavel_usuario_id, usuarios(nome_completo), obras(nome))"
+            "id, quantidade, epis(nome, ca), entregas!inner(funcionario_id, created_at, motivo, responsavel_usuario_id, usuarios(nome_completo), obras(nome))"
           )
           .eq("entregas.funcionario_id", funcionarioData.id)
           .order("id", { ascending: false });
         const { data: posseData } = await supabase
           .from("posse_epi_funcionario")
-          .select("quantidade")
-          .eq("funcionario_id", funcionarioData.id);
+          .select("epi_id, quantidade, epis(nome, ca)")
+          .eq("funcionario_id", funcionarioData.id)
+          .gt("quantidade", 0);
         // EPI-339: histórico de transferências entre obras.
         const { data: transferenciasData } = await supabase
           .from("funcionario_transferencias")
@@ -67,7 +69,7 @@ export default function FichaFuncionario() {
         if (ativo) {
           setTransferencias(transferenciasData ?? []);
           setHistorico(itensData ?? []);
-          setEmPosse((posseData ?? []).reduce((total, linha) => total + (linha.quantidade ?? 0), 0));
+          setPosseItens(posseData ?? []);
         }
       }
     }
@@ -197,6 +199,7 @@ export default function FichaFuncionario() {
                     <th className="py-2 pr-4 font-medium">EPI</th>
                     <th className="py-2 pr-4 font-medium">CA</th>
                     <th className="py-2 pr-4 font-medium">Qtd.</th>
+                    <th className="py-2 pr-4 font-medium">Motivo</th>
                     <th className="py-2 font-medium">Responsável</th>
                   </tr>
                 </thead>
@@ -208,6 +211,7 @@ export default function FichaFuncionario() {
                       <td className="py-2.5 pr-4 font-medium">{item.epis?.nome ?? "—"}</td>
                       <td className="py-2.5 pr-4 text-epi-muted">{item.epis?.ca ?? "—"}</td>
                       <td className="py-2.5 pr-4 text-epi-muted">{item.quantidade}</td>
+                      <td className="py-2.5 pr-4 text-epi-muted">{rotuloMotivoEntrega(item.entregas.motivo)}</td>
                       <td className="py-2.5 text-epi-muted">{item.entregas.usuarios?.nome_completo ?? "—"}</td>
                     </tr>
                   ))}
@@ -265,7 +269,7 @@ export default function FichaFuncionario() {
       {podeGerenciar && (
         <SituacaoFuncionario
           funcionario={funcionario}
-          emPosse={emPosse}
+          posseItens={posseItens}
           onAlterado={() => setRecarregar((n) => n + 1)}
         />
       )}
@@ -283,59 +287,98 @@ function Stat({ label, valor, destaque }) {
 }
 
 // Bloco "Situação do funcionário": inativar (desligamento) ou reativar.
-function SituacaoFuncionario({ funcionario, emPosse, onAlterado }) {
+function SituacaoFuncionario({ funcionario, posseItens, onAlterado }) {
   const estaAtivo = funcionario.status === "ativo";
   const [abrindo, setAbrindo] = useState(false);
   const [data, setData] = useState(hojeIso());
   const [motivo, setMotivo] = useState("");
   const [motivoOutro, setMotivoOutro] = useState("");
+  // EPI-340: baixa dos EPIs que estão com o funcionário
+  const [baixa, setBaixa] = useState([]);
+  const [locais, setLocais] = useState([]);
+  const [localId, setLocalId] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState("");
   const [aviso, setAviso] = useState("");
 
-  async function gravar(mudancas, mensagemOk) {
+  async function abrirDesligamento() {
+    setErro("");
+    setAviso("");
+    setBaixa(baixaInicial(posseItens));
+    const { data: locaisData } = await supabase
+      .from("locais_estoque")
+      .select("id, nome")
+      .eq("status", "ativo")
+      .order("nome");
+    setLocais(locaisData ?? []);
+    setLocalId(locaisData?.[0]?.id ?? "");
+    setAbrindo(true);
+  }
+
+  function mudarDestino(epiId, destino) {
+    setBaixa((atual) => atual.map((item) => (item.epiId === epiId ? { ...item, destino } : item)));
+  }
+
+  function mesmoDestinoParaTodos(destino) {
+    setBaixa((atual) => atual.map((item) => ({ ...item, destino })));
+  }
+
+  // EPI-340: desliga pela função do banco, que dá baixa em TUDO e inativa
+  // numa operação só (se algo falhar, nada é gravado).
+  async function desligar() {
+    const mensagem =
+      validarDesligamento({ data, motivo, motivoOutro, dataAdmissao: funcionario.data_admissao }) ||
+      validarBaixa(baixa, localId);
+    if (mensagem) {
+      setErro(mensagem);
+      return;
+    }
+    setErro("");
+    setSalvando(true);
+    const vaiAlgoParaEstoque = baixa.some((item) => item.destino === "estoque");
+    const { error } = await supabase.rpc("desligar_funcionario", {
+      p_funcionario_id: funcionario.id,
+      p_data: data,
+      p_motivo: textoMotivo(motivo, motivoOutro),
+      p_local_id: vaiAlgoParaEstoque ? localId : null,
+      p_itens: baixaParaSalvar(baixa),
+    });
+    setSalvando(false);
+    if (error) {
+      setErro(error.message || "Não foi possível desligar.");
+      return;
+    }
+    setAbrindo(false);
+    setAviso(
+      baixa.length > 0
+        ? `${funcionario.nome} foi desligado e a baixa de ${baixa.length} EPI(s) foi registrada.`
+        : `${funcionario.nome} foi desligado.`
+    );
+    onAlterado();
+  }
+
+  async function reativar() {
     setErro("");
     setAviso("");
     setSalvando(true);
     const { error, count } = await supabase
       .from("funcionarios")
-      .update(mudancas, { count: "exact" })
+      .update({ status: "ativo" }, { count: "exact" })
       .eq("id", funcionario.id);
     setSalvando(false);
-
     if (error) {
-      setErro(error.message || "Não foi possível salvar.");
+      setErro(error.message || "Não foi possível reativar.");
       return;
     }
     if (count === 0) {
       setErro("Você não tem permissão para alterar este funcionário.");
       return;
     }
-    setAbrindo(false);
-    setAviso(mensagemOk);
+    setAviso(`${funcionario.nome} foi reativado.`);
     onAlterado();
   }
 
-  function inativar() {
-    const mensagem = validarDesligamento({
-      data,
-      motivo,
-      motivoOutro,
-      dataAdmissao: funcionario.data_admissao,
-    });
-    if (mensagem) {
-      setErro(mensagem);
-      return;
-    }
-    gravar(
-      { status: "inativo", data_desligamento: data, motivo_desligamento: textoMotivo(motivo, motivoOutro) },
-      `${funcionario.nome} foi inativado.`
-    );
-  }
-
-  function reativar() {
-    gravar({ status: "ativo" }, `${funcionario.nome} foi reativado.`);
-  }
+  const precisaLocal = baixa.some((item) => item.destino === "estoque");
 
   return (
     <div className="mt-6 max-w-[1060px] rounded-xl border border-epi-border bg-white p-6">
@@ -347,33 +390,21 @@ function SituacaoFuncionario({ funcionario, emPosse, onAlterado }) {
       {estaAtivo && !abrindo && (
         <div className="mt-3 flex items-center justify-between gap-4">
           <p className="text-sm text-epi-muted">
-            Funcionário desligado da empresa? Inative-o: ele sai da lista e não recebe mais EPI, mas o histórico fica
-            guardado.
+            Funcionário desligado da empresa? Registre o desligamento: você dá baixa nos EPIs que estão com ele e ele sai
+            da lista, mas o histórico fica guardado.
           </p>
           <button
             type="button"
-            onClick={() => setAbrindo(true)}
+            onClick={abrirDesligamento}
             className="whitespace-nowrap rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
           >
-            Inativar (desligamento)
+            Desligar funcionário
           </button>
         </div>
       )}
 
       {estaAtivo && abrindo && (
         <div className="mt-4">
-          {emPosse > 0 && (
-            <p className="mb-4 rounded-lg bg-orange-50 px-4 py-3 text-sm text-orange-800">
-              Este funcionário ainda tem <b>{emPosse} EPI(s) em posse</b>. O ideal é registrar a devolução antes de
-              inativar:{" "}
-              <SePuder acao="registrar_entregas">
-                <Link to="/entregas/troca-devolucao" className="font-semibold underline">
-                  Troca / devolução
-                </Link>
-              </SePuder>
-              .
-            </p>
-          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <label className="block text-[13px] font-medium text-epi-ink">
               Data do desligamento
@@ -412,6 +443,84 @@ function SituacaoFuncionario({ funcionario, emPosse, onAlterado }) {
               </label>
             )}
           </div>
+
+          {/* EPI-340: baixa obrigatória de tudo o que está com o funcionário */}
+          <div className="mt-6">
+            <p className="text-sm font-semibold text-epi-ink">Baixa dos EPIs em posse</p>
+            {baixa.length === 0 ? (
+              <p className="mt-2 text-sm text-epi-muted">Nenhum EPI em posse. Nada para dar baixa.</p>
+            ) : (
+              <>
+                <p className="mt-1 text-sm text-epi-muted">
+                  Diga o que aconteceu com cada EPI que está com ele. Só dá para desligar depois de dar baixa em todos.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span className="text-epi-muted">Marcar todos como:</span>
+                  {DESTINOS_BAIXA.map((opcao) => (
+                    <button
+                      key={opcao.valor}
+                      type="button"
+                      onClick={() => mesmoDestinoParaTodos(opcao.valor)}
+                      className="rounded-full border border-epi-border px-2 py-0.5 text-epi-ink hover:bg-epi-paper"
+                    >
+                      {opcao.label}
+                    </button>
+                  ))}
+                </div>
+                <table className="mt-3 w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-epi-border text-xs uppercase text-epi-muted">
+                      <th className="py-2 pr-4 font-medium">EPI</th>
+                      <th className="py-2 pr-4 font-medium">CA</th>
+                      <th className="py-2 pr-4 font-medium">Qtd.</th>
+                      <th className="py-2 font-medium">O que aconteceu</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {baixa.map((item) => (
+                      <tr key={item.epiId} className="border-b border-epi-border last:border-0">
+                        <td className="py-2 pr-4 font-medium text-epi-ink">{item.nome}</td>
+                        <td className="py-2 pr-4 text-epi-muted">{item.ca || "—"}</td>
+                        <td className="py-2 pr-4 text-epi-muted">{item.quantidade}</td>
+                        <td className="py-2">
+                          <select
+                            value={item.destino}
+                            onChange={(event) => mudarDestino(item.epiId, event.target.value)}
+                            className="h-9 w-full rounded-lg border border-epi-border px-2 text-sm text-epi-ink"
+                          >
+                            <option value="">Escolha...</option>
+                            {DESTINOS_BAIXA.map((opcao) => (
+                              <option key={opcao.valor} value={opcao.valor}>
+                                {opcao.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {precisaLocal && (
+                  <label className="mt-3 block max-w-sm text-[13px] font-medium text-epi-ink">
+                    Local de estoque que recebe os devolvidos
+                    <select
+                      value={localId}
+                      onChange={(event) => setLocalId(event.target.value)}
+                      className="mt-2 h-10 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink"
+                    >
+                      <option value="">Escolha...</option>
+                      {locais.map((local) => (
+                        <option key={local.id} value={local.id}>
+                          {local.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </>
+            )}
+          </div>
+
           <div className="mt-4 flex justify-end gap-3">
             <button
               type="button"
@@ -426,10 +535,10 @@ function SituacaoFuncionario({ funcionario, emPosse, onAlterado }) {
             <button
               type="button"
               disabled={salvando}
-              onClick={inativar}
+              onClick={desligar}
               className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
             >
-              {salvando ? "Salvando..." : "Confirmar inativação"}
+              {salvando ? "Salvando..." : "Confirmar desligamento"}
             </button>
           </div>
         </div>
