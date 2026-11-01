@@ -1,4 +1,6 @@
-import { NavLink } from "react-router-dom";
+import { useState } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../context/AuthContext.jsx";
 import { abaDaRota, rotuloPerfil } from "../lib/permissoes.js";
 
@@ -19,6 +21,15 @@ const NAV_ITEMS = [
 
 export default function AppShell({ title, subtitle, activeSection, children }) {
   const { usuario, pode } = useAuth();
+  const navigate = useNavigate();
+  const [saindo, setSaindo] = useState(false);
+
+  // EPI-334: encerra a sessão no Supabase e volta para o login.
+  async function sair() {
+    setSaindo(true);
+    await supabase.auth.signOut();
+    navigate("/", { replace: true });
+  }
   const ehAdministrador = usuario?.perfil === "administrador";
   // EPI-333: cada aba só aparece se estiver liberada para o perfil
   // (caixinhas em Usuários e permissões). Visão geral é de todos.
@@ -65,9 +76,19 @@ export default function AppShell({ title, subtitle, activeSection, children }) {
             {subtitle && <p className="mt-1 text-sm text-epi-muted">{subtitle}</p>}
           </div>
           {usuario && (
-            <p className="text-sm text-epi-muted">
-              {usuario.nome_completo} • {rotuloPerfil(usuario.perfil)}
-            </p>
+            <div className="flex items-center gap-4">
+              <p className="text-sm text-epi-muted">
+                {usuario.nome_completo} • {rotuloPerfil(usuario.perfil)}
+              </p>
+              <button
+                type="button"
+                onClick={sair}
+                disabled={saindo}
+                className="rounded-lg border border-epi-border px-3 py-1.5 text-sm font-medium text-epi-ink hover:bg-epi-paper disabled:opacity-60"
+              >
+                {saindo ? "Saindo..." : "Sair"}
+              </button>
+            </div>
           )}
         </header>
 
