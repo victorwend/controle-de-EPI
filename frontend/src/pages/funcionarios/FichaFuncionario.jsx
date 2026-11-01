@@ -15,8 +15,8 @@ function formatarData(dataIso) {
 
 export default function FichaFuncionario() {
   const { matricula } = useParams();
-  const { usuario } = useAuth();
-  const ehAdministrador = usuario?.perfil === "administrador";
+  const { pode } = useAuth();
+  const podeGerenciar = pode("gerenciar_funcionarios");
   const [funcionario, setFuncionario] = useState(undefined);
   const [historico, setHistorico] = useState([]);
   const [emPosse, setEmPosse] = useState(0);
@@ -187,7 +187,7 @@ export default function FichaFuncionario() {
         </div>
       </div>
 
-      {ehAdministrador && (
+      {podeGerenciar && (
         <SituacaoFuncionario
           funcionario={funcionario}
           emPosse={emPosse}

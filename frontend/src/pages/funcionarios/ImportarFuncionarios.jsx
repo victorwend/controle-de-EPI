@@ -37,8 +37,9 @@ function Contador({ titulo, valor, cor }) {
 }
 
 export default function ImportarFuncionarios() {
-  const { usuario } = useAuth();
-  const ehAdministrador = usuario?.perfil === "administrador";
+  const { usuario, pode } = useAuth();
+  // EPI-331: depende da caixinha "funcionários" em Usuários e permissões.
+  const podeCadastrar = pode("gerenciar_funcionarios");
 
   const [obras, setObras] = useState([]);
   const [nomeArquivo, setNomeArquivo] = useState("");
@@ -141,9 +142,9 @@ export default function ImportarFuncionarios() {
         </p>
       </div>
 
-      {!ehAdministrador && (
+      {!podeCadastrar && (
         <p className="mb-6 max-w-[1060px] rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
-          Só o Administrador pode cadastrar funcionários. Você pode baixar o modelo e conferir a planilha,
+          Seu perfil não tem permissão para cadastrar funcionários. Você pode baixar o modelo e conferir a planilha,
           mas não vai conseguir gravar.
         </p>
       )}
@@ -287,7 +288,7 @@ export default function ImportarFuncionarios() {
             <button
               type="button"
               onClick={handleConfirmar}
-              disabled={gravando || analise.novos.length === 0 || !ehAdministrador}
+              disabled={gravando || analise.novos.length === 0 || !podeCadastrar}
               className="rounded-lg bg-epi-brand px-4 py-2.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
             >
               {gravando ? "Cadastrando..." : `Cadastrar ${analise.novos.length} funcionário(s)`}

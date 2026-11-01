@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import AppShell from "../../layouts/AppShell.jsx";
 import { supabase } from "../../lib/supabaseClient";
 import { useAuth } from "../../context/AuthContext.jsx";
+import MatrizPermissoes from "./MatrizPermissoes.jsx";
 import {
-  MATRIZ_PERMISSOES,
   PERFIS,
   perfilValido,
   resumoObras,
@@ -248,50 +248,8 @@ export default function UsuariosPermissoes() {
         </table>
       </div>
 
-      <section className="mt-10 max-w-[1060px]">
-        <h2 className="text-lg font-semibold text-epi-ink">O que cada perfil pode fazer</h2>
-        <p className="mt-1 text-sm text-epi-muted">
-          Estas regras são garantidas pelo banco de dados. Fora o Administrador, cada perfil só vê e opera as obras
-          liberadas para ele (e o que é da sede, sem obra).
-        </p>
-        <div className="mt-4 overflow-x-auto rounded-xl border border-epi-border bg-white">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-epi-border text-xs uppercase text-epi-muted">
-              <tr>
-                <th className="px-4 py-3">Ação</th>
-                {PERFIS.map((perfil) => (
-                  <th key={perfil.valor} className="px-4 py-3 text-center">
-                    {perfil.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {MATRIZ_PERMISSOES.map((linha) => (
-                <tr key={linha.acao} className="border-b border-epi-border last:border-0">
-                  <td className="px-4 py-3 text-epi-ink">
-                    {linha.acao}
-                    <span className="block text-xs text-epi-muted">{linha.regra}</span>
-                  </td>
-                  {PERFIS.map((perfil) => (
-                    <td key={perfil.valor} className="px-4 py-3 text-center">
-                      {linha.perfis.includes(perfil.valor) ? (
-                        <span className="font-semibold text-green-700" aria-label="pode">
-                          ✓
-                        </span>
-                      ) : (
-                        <span className="text-epi-muted" aria-label="não pode">
-                          —
-                        </span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+      {/* EPI-331: as caixinhas que o Administrador marca para cada perfil */}
+      <MatrizPermissoes />
     </AppShell>
   );
 }

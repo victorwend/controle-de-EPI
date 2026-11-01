@@ -13,11 +13,10 @@ import { useAuth } from "../../context/AuthContext.jsx";
 // tenha sido usado (sem entradas, entregas ou transferências). Local com
 // histórico o banco não deixa apagar (correção 10): ele fica inativo.
 
-const PERFIS_QUE_GERENCIAM = ["administrador", "almoxarife"];
-
 export default function LocaisEstoque() {
-  const { usuario } = useAuth();
-  const podeGerenciar = PERFIS_QUE_GERENCIAM.includes(usuario?.perfil);
+  const { pode } = useAuth();
+  // EPI-331: quem gerencia depende das caixinhas em Usuários e permissões.
+  const podeGerenciar = pode("gerenciar_estoque");
 
   const [locais, setLocais] = useState([]);
   const [saldoPorLocal, setSaldoPorLocal] = useState({});
