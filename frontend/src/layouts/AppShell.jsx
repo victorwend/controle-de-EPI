@@ -1,4 +1,6 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../context/AuthContext.jsx";
+import { rotuloPerfil } from "../lib/permissoes.js";
 
 const NAV_ITEMS = [
   { label: "Visão geral", to: "/visao-geral" },
@@ -9,10 +11,16 @@ const NAV_ITEMS = [
   { label: "Obras", to: "/obras" },
   { label: "Cadastros", to: "/cadastros" },
   { label: "Relatórios", to: "/relatorios" },
+  // EPI-329: só aparece para o Administrador (ver somenteAdministrador).
+  { label: "Usuários e permissões", to: "/usuarios", somenteAdministrador: true },
   { label: "Configurações", to: "/configuracoes" },
 ];
 
 export default function AppShell({ title, subtitle, activeSection, children }) {
+  const { usuario } = useAuth();
+  const ehAdministrador = usuario?.perfil === "administrador";
+  const itensVisiveis = NAV_ITEMS.filter((item) => !item.somenteAdministrador || ehAdministrador);
+
   return (
     <div className="flex min-h-screen w-full bg-epi-paper">
       <aside className="flex w-[248px] shrink-0 flex-col bg-epi-shell px-6 py-8 text-white">
@@ -24,7 +32,7 @@ export default function AppShell({ title, subtitle, activeSection, children }) {
         </div>
 
         <nav className="mt-10 flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => {
+          {itensVisiveis.map((item) => {
             const isActive = activeSection === item.label;
             return (
               <NavLink
@@ -49,7 +57,11 @@ export default function AppShell({ title, subtitle, activeSection, children }) {
             <h1 className="text-xl font-semibold text-epi-ink">{title}</h1>
             {subtitle && <p className="mt-1 text-sm text-epi-muted">{subtitle}</p>}
           </div>
-          <p className="text-sm text-epi-muted">Victor • Administrador</p>
+          {usuario && (
+            <p className="text-sm text-epi-muted">
+              {usuario.nome_completo} • {rotuloPerfil(usuario.perfil)}
+            </p>
+          )}
         </header>
 
         <main className="flex-1 p-10">{children}</main>

@@ -33,6 +33,7 @@ import Dashboard from "./pages/Dashboard.jsx";
 import RelatoriosPainel from "./pages/relatorios/RelatoriosPainel.jsx";
 import FichaEpiIndividual from "./pages/relatorios/FichaEpiIndividual.jsx";
 import Placeholder from "./pages/Placeholder.jsx";
+import UsuariosPermissoes from "./pages/usuarios/UsuariosPermissoes.jsx";
 
 export default function App() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="/estoque/locais/novo" element={<NovoLocalEstoque />} />
             <Route path="/estoque/locais/:id/editar" element={<NovoLocalEstoque />} />
             <Route path="/relatorios" element={<RelatoriosPainel />} />
+            <Route path="/usuarios" element={<UsuariosPermissoes />} />
             <Route path="/configuracoes" element={<Placeholder />} />
           </Route>
 
