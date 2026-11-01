@@ -5,7 +5,7 @@ import { supabase } from "../../lib/supabaseClient";
 import { useLocalEstoque } from "../../hooks/useLocalEstoque";
 import SeletorLocalEstoque from "../../components/SeletorLocalEstoque.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
-import { imprimirHtml, montarTermoIndividual } from "../../lib/termoRecebimento";
+import { imprimirHtml, montarTermoIndividual, TEXTO_DECLARACAO } from "../../lib/termoRecebimento";
 
 // EPI-273: enquanto a biometria não for real (RN-062), a entrega é concluída
 // pelo BOTÃO DE CONFIRMAÇÃO do responsável (decisão do Victor, 31/10/2026).
@@ -56,10 +56,10 @@ export default function NovaEntrega() {
       const [{ data: funcionariosData }, { data: episData }, { data: empresaData }] = await Promise.all([
         supabase
           .from("funcionarios")
-          .select("id, matricula, nome, funcao, biometria_cadastrada, obras(nome)")
+          .select("id, matricula, nome, funcao, setor, biometria_cadastrada, obras(nome)")
           .eq("status", "ativo")
           .order("nome"),
-        supabase.from("epis").select("id, nome, ca, estoque_minimo").order("nome"),
+        supabase.from("epis").select("id, nome, ca, validade_ca, estoque_minimo").order("nome"),
         supabase.from("empresas").select("razao_social").limit(1),
       ]);
 
@@ -114,12 +114,12 @@ export default function NovaEntrega() {
     const sugeridos = matriz
       .map((m) => epis.find((e) => e.nome === m.epi))
       .filter(Boolean)
-      .map((epi) => ({ epiId: epi.id, nome: epi.nome, ca: epi.ca, qtd: 1 }));
+      .map((epi) => ({ epiId: epi.id, nome: epi.nome, ca: epi.ca, validadeCa: epi.validade_ca, qtd: 1 }));
     setItens(sugeridos);
   }
 
   function adicionarItem(epi) {
-    setItens((atual) => [...atual, { epiId: epi.id, nome: epi.nome, ca: epi.ca, qtd: 1 }]);
+    setItens((atual) => [...atual, { epiId: epi.id, nome: epi.nome, ca: epi.ca, validadeCa: epi.validade_ca, qtd: 1 }]);
     setBuscaEpi("");
   }
 
@@ -163,6 +163,7 @@ export default function NovaEntrega() {
             nome: funcionario.nome,
             matricula: funcionario.matricula,
             funcao: funcionario.funcao,
+            setor: funcionario.setor,
             obra: funcionario.obras?.nome,
           },
           local: localPadrao?.nome,
@@ -519,9 +520,13 @@ export default function NovaEntrega() {
 
             <div className="mt-6 border-t border-epi-border pt-6">
               <p className="text-sm font-semibold text-epi-ink">Confirmação da entrega</p>
-              <p className="mt-1 text-sm text-epi-muted">
-                Confira os itens com o colaborador e clique em <b>Confirmar entrega</b>. O sistema registra quem
-                confirmou e quando.
+              <div className="mt-2 rounded-lg bg-epi-paper p-3 text-sm text-epi-ink">
+                <p className="text-xs font-semibold uppercase text-epi-muted">Declaração do colaborador</p>
+                <p className="mt-1">{TEXTO_DECLARACAO}</p>
+              </div>
+              <p className="mt-2 text-sm text-epi-muted">
+                Leia a declaração para o colaborador, confira os itens com ele e clique em <b>Confirmar entrega</b>.
+                O sistema registra quem confirmou e quando.
               </p>
               <button
                 type="button"
