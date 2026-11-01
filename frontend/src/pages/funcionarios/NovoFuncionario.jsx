@@ -24,6 +24,7 @@ export default function NovoFuncionario() {
   const [setor, setSetor] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [obras, setObras] = useState([]);
+  const [funcoes, setFuncoes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState("");
 
@@ -35,6 +36,16 @@ export default function NovoFuncionario() {
       .order("nome")
       .then(({ data }) => {
         if (ativo) setObras(data ?? []);
+      });
+    // EPI-280: sugestões vindas do cadastro de funções (Matriz EPI x Função).
+    // Digitar uma função nova também vale: o banco cria a função sozinho.
+    supabase
+      .from("funcoes")
+      .select("id, nome")
+      .eq("status", "ativa")
+      .order("nome")
+      .then(({ data }) => {
+        if (ativo) setFuncoes(data ?? []);
       });
     return () => {
       ativo = false;
@@ -142,9 +153,15 @@ export default function NovoFuncionario() {
                 type="text"
                 value={funcao}
                 onChange={(event) => setFuncao(event.target.value)}
-                placeholder="Servente, Pedreiro, Operador..."
+                list="lista-funcoes"
+                placeholder="Escolha ou digite a função"
                 className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink placeholder:text-epi-muted focus:outline-none focus:ring-2 focus:ring-epi-brand"
               />
+              <datalist id="lista-funcoes">
+                {funcoes.map((item) => (
+                  <option key={item.id} value={item.nome} />
+                ))}
+              </datalist>
             </label>
 
             <label className="block text-[13px] font-medium text-epi-ink">

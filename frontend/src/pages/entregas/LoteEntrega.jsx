@@ -10,7 +10,7 @@ import { imprimirHtml, montarListaAssinaturasLote } from "../../lib/termoRecebim
 // EPI-273: enquanto a biometria não é real, cada entrega é concluída pelo
 // botão de confirmação do responsável. A lista impressa é opcional.
 const METODO_ACEITE = "confirmacao_responsavel";
-import { MATRIZ_POR_FUNCAO, FUNCOES_MATRIZ } from "../../data/episConfig.js";
+import { itensSugeridos as sugerirDaMatriz } from "../../lib/matriz.js";
 
 // Tela 03.07 — Entregas — Em lote. Diferente das outras telas de Entregas, o
 // Figma preenche esta com dado só estrutural ("Funcionário 01 • matrícula" x4,
@@ -25,6 +25,8 @@ export default function LoteEntrega() {
   const [obras, setObras] = useState([]);
   const [funcionarios, setFuncionarios] = useState([]);
   const [epis, setEpis] = useState([]);
+  const [funcoes, setFuncoes] = useState([]);
+  const [matriz, setMatriz] = useState([]);
   // EPI-325: local de estoque escolhido na tela (antes era fixo no "Almoxarifado Central").
   const { locais, local: localPadrao, localId, setLocalId, saldoMap, carregandoLocais, carregandoSaldo } =
     useLocalEstoque();
@@ -40,16 +42,22 @@ export default function LoteEntrega() {
     let ativo = true;
 
     async function carregar() {
-      const [{ data: obrasData }, { data: funcionariosData }, { data: episData }] = await Promise.all([
-        supabase.from("obras").select("id, nome").order("nome"),
-        supabase.from("funcionarios").select("id, matricula, nome, funcao, obra_id, status").eq("status", "ativo"),
-        supabase.from("epis").select("id, nome, ca, validade_ca").order("nome"),
-      ]);
+      const [{ data: obrasData }, { data: funcionariosData }, { data: episData }, { data: funcoesData }, { data: matrizData }] =
+        await Promise.all([
+          supabase.from("obras").select("id, nome").order("nome"),
+          supabase.from("funcionarios").select("id, matricula, nome, funcao, funcao_id, obra_id, status").eq("status", "ativo"),
+          supabase.from("epis").select("id, nome, ca, validade_ca").order("nome"),
+          // EPI-280: funções e matriz reais (antes vinham de data/episConfig.js)
+          supabase.from("funcoes").select("id, nome").eq("status", "ativa").order("nome"),
+          supabase.from("matriz_epi_funcao").select("funcao_id, epi_id, quantidade, obrigatorio"),
+        ]);
 
       if (!ativo) return;
       setObras(obrasData ?? []);
       setFuncionarios(funcionariosData ?? []);
       setEpis(episData ?? []);
+      setFuncoes(funcoesData ?? []);
+      setMatriz(matrizData ?? []);
 
       setCarregando(false);
     }
@@ -62,13 +70,13 @@ export default function LoteEntrega() {
 
   const funcionariosFiltrados = useMemo(() => {
     if (!obraId || !funcao) return [];
-    return funcionarios.filter((f) => f.obra_id === obraId && f.funcao === funcao);
+    return funcionarios.filter((f) => f.obra_id === obraId && f.funcao_id === funcao);
   }, [obraId, funcao, funcionarios]);
 
   function aplicarFiltro(novaObraId, novaFuncao) {
     setObraId(novaObraId);
     setFuncao(novaFuncao);
-    const filtrados = funcionarios.filter((f) => f.obra_id === novaObraId && f.funcao === novaFuncao);
+    const filtrados = funcionarios.filter((f) => f.obra_id === novaObraId && f.funcao_id === novaFuncao);
     const marcados = {};
     filtrados.forEach((f) => (marcados[f.id] = true));
     setSelecionados(marcados);
@@ -76,15 +84,12 @@ export default function LoteEntrega() {
 
   const selecionadosCount = Object.values(selecionados).filter(Boolean).length;
 
-  const itensSugeridos = useMemo(() => {
-    const matriz = (MATRIZ_POR_FUNCAO[funcao] ?? []).filter((m) => m.obrigatoriedade === "Obrigatório");
-    return matriz
-      .map((m) => {
-        const epi = epis.find((e) => e.nome === m.epi);
-        return epi ? { epiId: epi.id, nome: epi.nome, ca: epi.ca, validadeCa: epi.validade_ca, quantidade: m.quantidade } : null;
-      })
-      .filter(Boolean);
-  }, [funcao, epis]);
+  // EPI-280: os EPIs OBRIGATÓRIOS da função (Matriz EPI x Função),
+  // com a quantidade da matriz para cada funcionário.
+  const itensSugeridos = useMemo(
+    () => sugerirDaMatriz(matriz.filter((linha) => linha.funcao_id === funcao), epis, { soObrigatorios: true }),
+    [funcao, epis, matriz]
+  );
 
   const totalUnidades = itensSugeridos.reduce((soma, item) => soma + item.quantidade * selecionadosCount, 0);
 
@@ -224,9 +229,9 @@ export default function LoteEntrega() {
                   className="mt-2 h-11 w-full rounded-lg border border-epi-border px-3 text-sm text-epi-ink focus:outline-none focus:ring-2 focus:ring-epi-brand"
                 >
                   <option value="">Selecione a função</option>
-                  {FUNCOES_MATRIZ.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
+                  {funcoes.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.nome}
                     </option>
                   ))}
                 </select>
@@ -264,7 +269,9 @@ export default function LoteEntrega() {
                 <h3 className="text-sm font-semibold text-epi-ink">2. EPIs da entrega</h3>
                 <p className="mt-1 text-xs text-epi-muted">Sugestão baseada na matriz da função</p>
                 {itensSugeridos.length === 0 ? (
-                  <p className="mt-4 text-sm text-epi-muted">Nenhuma matriz definida para esta função ainda.</p>
+                  <p className="mt-4 text-sm text-epi-muted">
+                    Nenhum EPI obrigatório na matriz desta função. Configure em EPIs e CAs → Matriz EPI x Função.
+                  </p>
                 ) : (
                   <>
                     <div className="mt-3 space-y-2">
